@@ -1,0 +1,100 @@
+<?xml version='1.0' encoding='UTF-8' ?>
+
+<guifications>
+    <theme api='1'>
+        <info>
+            <name>Dark and Small</name>
+            <version>1.0</version>
+            <summary>Dark and Small Theme</summary>
+            <description>Black background with light text.</description>
+            <author>Kyle Wayman &lt;kwayman@gmail.com&gt;</author>
+            <website>http://guifications.sourceforge.net</website>
+        </info>
+        <options>
+            <date_format>%x</date_format>
+            <time_format>%X</time_format>
+            <warning>N/A</warning>
+            <ellipsis>...</ellipsis>
+        </options>
+        <notification type='info' use_gtk='0' background='bg.png' width='420' height='60'>
+            <item type='icon'>
+                <position value='north-west'/>
+                <h_offset value='4'/>
+                <v_offset value='4'/>
+                <icon type='file' size='little'/>
+            </item>
+            <item type='text'>
+                <position value='north-west'/>
+                <h_offset value='42'/>
+                <v_offset value='4'/>
+                <text format='%R' font='Sans Bold 12' color='#ffffffffffff' clipping='ellipsis-middle' width='0'/>
+            </item>
+            <item type='text'>
+                <position value='north-west'/>
+                <h_offset value='42'/>
+                <v_offset value='24'/>
+                <text format='%r' font='Sans 8' color='#ffffffffffff' clipping='ellipsis-middle' width='0'/>
+            </item>
+        </notification>
+        <notification type='warn' use_gtk='0' background='bg.png' width='420' height='60'>
+            <item type='icon'>
+                <position value='north-west'/>
+                <h_offset value='4'/>
+                <v_offset value='4'/>
+                <icon type='file' size='little'/>
+            </item>
+            <item type='text'>
+                <position value='north-west'/>
+                <h_offset value='42'/>
+                <v_offset value='4'/>
+                <text format='%R' font='Sans Bold 12' color='#ffffffffffff' clipping='ellipsis-middle' width='0'/>
+            </item>
+            <item type='text'>
+                <position value='north-west'/>
+                <h_offset value='42'/>
+                <v_offset value='24'/>
+                <text format='%r' font='Sans 8' color='#ffffffffffff' clipping='ellipsis-middle' width='0'/>
+            </item>
+        </notification>
+        <notification type='error' use_gtk='0' background='bg.png' width='420' height='60'>
+            <item type='icon'>
+                <position value='north-west'/>
+                <h_offset value='4'/>
+                <v_offset value='4'/>
+                <icon type='file' size='little'/>
+            </item>
+            <item type='text'>
+                <position value='north-west'/>
+                <h_offset value='42'/>
+                <v_offset value='4'/>
+                <text format='%R' font='Sans Bold 12' color='#ffffffffffff' clipping='ellipsis-middle' width='0'/>
+            </item>
+            <item type='text'>
+                <position value='north-west'/>
+                <h_offset value='42'/>
+                <v_offset value='24'/>
+                <text format='%r' font='Sans 8' color='#ffffffffffff' clipping='ellipsis-middle' width='0'/>
+            </item>
+        </notification>
+        <notification type='fatal' use_gtk='0' background='bg.png' width='420' height='60'>
+            <item type='icon'>
+                <position value='north-west'/>
+                <h_offset value='4'/>
+                <v_offset value='4'/>
+                <icon type='file' size='little'/>
+            </item>
+            <item type='text'>
+                <position value='north-west'/>
+                <h_offset value='42'/>
+                <v_offset value='4'/>
+                <text format='%R' font='Sans Bold 12' color='#ffffffffffff' clipping='ellipsis-middle' width='0'/>
+            </item>
+            <item type='text'>
+                <position value='north-west'/>
+                <h_offset value='42'/>
+                <v_offset value='24'/>
+                <text format='%r' font='Sans 8' color='#ffffffffffff' clipping='ellipsis-middle' width='0'/>
+            </item>
+        </notification>
+    </theme>
+</guifications>

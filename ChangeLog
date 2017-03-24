@@ -1,0 +1,23 @@
+2008-11-17 Ryan Fan
+* Add the GTK_VERSION_CHECK when invoke the gtk_combo_box_get_active_text
+* Add the version check of gstreamer-1.0
+* Add the version check of gtk+-2.0
+
+2008-11-19 Ryan Fan
+* Add email notification support, it works but cannot check the correct return result 
+
+2008-11-24 Ryan Fan
+* Design and implement qmon pref config frame 
+
+2008-11-25 Ryan Fan
+* Add qmon login pref frame
+
+2008-12-13 Ryan Fan
+* Create a thread to do http fetching
+* Create another thread to monitor whether http was done
+* Add beasymsg format 
+
+2008-12-15 Ryan Fan
+* Finish table message display 
+* Fix the problem not destroy the table message after display 
+* Finish text message display 
