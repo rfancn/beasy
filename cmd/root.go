@@ -5,26 +5,19 @@ import (
 	"os"
 	"runtime/debug"
 
+	"github.com/rfancn/beasy/cmd/run"
 	"github.com/rfancn/beasy/g"
 	"github.com/spf13/cobra"
 )
 
-const (
-	ServerModeUnknown = iota
-	ServerModeMaster
-	ServerModeSlave
-)
-
 var (
-	argServerMode int
-	rootCommand   = &cobra.Command{}
+	rootCommand = &cobra.Command{}
 )
 
 func init() {
 	rootCommand.PersistentFlags().BoolVarP(&g.Debug, "debug", "d", false, "--debug")
-	rootCommand.PersistentFlags().IntVarP(&argServerMode, "master", "m", ServerModeMaster, "--master")
 
-	rootCommand.AddCommand(runCommand)
+	rootCommand.AddCommand(run.Command)
 	rootCommand.AddCommand(configCommand)
 }
 

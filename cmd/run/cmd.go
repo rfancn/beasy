@@ -1,18 +1,16 @@
-package cmd
+package run
 
 import (
 	"github.com/hdget/sdk"
 	"github.com/hdget/utils/logger"
 	"github.com/rfancn/beasy/g"
-	"github.com/rfancn/beasy/internal/server"
-	"github.com/rfancn/beasy/internal/server/master"
 	"github.com/rfancn/beasy/internal/server/slave"
 	"github.com/spf13/cobra"
 )
 
 var (
 	argConfigFile string
-	runCommand    = &cobra.Command{
+	Command       = &cobra.Command{
 		Use:   "run",
 		Short: "run server",
 		PreRun: func(cmd *cobra.Command, args []string) {
@@ -22,27 +20,20 @@ var (
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
-			runSever()
+			runSlaveServer()
 		},
 	}
 )
 
 func init() {
-	runCommand.PersistentFlags().StringVarP(&argConfigFile, "config", "c", "", "config file")
+	Command.PersistentFlags().StringVarP(&argConfigFile, "config", "c", "", "config file")
+
+	Command.AddCommand(subCmdRunMaster)
 }
 
-func runSever() {
-	var srv server.Server
-
-	switch argServerMode {
-	case ServerModeMaster:
-		srv = master.New()
-	default:
-		srv = slave.New()
-	}
-
-	err := srv.Run()
+func runSlaveServer() {
+	err := slave.New().Run()
 	if err != nil {
-		sdk.Logger().Fatal("run server", "err", err)
+		sdk.Logger().Fatal("run slave server", "err", err)
 	}
 }
