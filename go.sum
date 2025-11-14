@@ -232,8 +232,8 @@ github.com/hdget/provider-config-viper v0.1.2 h1:ejeDxyBv2tQp+19JU0yMUTWKzuvJV47
 github.com/hdget/provider-config-viper v0.1.2/go.mod h1:H9dwK4pnrpZ4/77dg3LP/bMZlljXpHeP445X8bNR2PQ=
 github.com/hdget/provider-logger-zerolog v0.1.1 h1:XEgPzJElhknpzPRVo9D9RH3pURUDreN1bsVOSWFwaZs=
 github.com/hdget/provider-logger-zerolog v0.1.1/go.mod h1:ppICORy0KbeIdy6oYwxNtCIDUgkkbI6E6jZ7E4DTJTA=
-github.com/hdget/sdk v0.2.0 h1:7NfGSB3/Lea7m/Sf7j+/IlZYpDVTu7ONWsi3L87rEJU=
-github.com/hdget/sdk v0.2.0/go.mod h1:Spzd58QoNhj0yuCUIZcwpOyr6kl3YjTWtnub7B2h494=
+github.com/hdget/sdk v0.2.1 h1:7IpIL2gC36lqj9RvZV0dTopybGq0vNR75hK3ZyctAKA=
+github.com/hdget/sdk v0.2.1/go.mod h1:Spzd58QoNhj0yuCUIZcwpOyr6kl3YjTWtnub7B2h494=
 github.com/hdget/utils v0.0.4 h1:yziS8MTwF62lHeWveh013iQjjeSkgBomr8DlmIWkd/8=
 github.com/hdget/utils v0.0.4/go.mod h1:1cmY9zQ+KBpsaf58IJQ3kwv2+1NC4dCFLnT6qQG4028=
 github.com/henrybear327/Proton-API-Bridge v1.0.0 h1:gjKAaWfKu++77WsZTHg6FUyPC5W0LTKWQciUm8PMZb0=

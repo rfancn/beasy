@@ -18,12 +18,12 @@ import (
 )
 
 type masterServerImpl struct {
-	watcher filewatch.FileWatcher
-	event   *event.Server
-	syncer  pkgsync.Syncer
-	wg      sync.WaitGroup
-	ctx     context.Context
-	cancel  context.CancelFunc
+	watcher     filewatch.FileWatcher
+	eventServer *event.Server
+	syncer      pkgsync.Syncer
+	wg          sync.WaitGroup
+	ctx         context.Context
+	cancel      context.CancelFunc
 }
 
 func New() server.Server {
@@ -34,9 +34,30 @@ func (m *masterServerImpl) Run() error {
 	// 创建上下文用于控制生命周期
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 
-	// 初始化组件
-	if err := m.initializeComponents(); err != nil {
-		return fmt.Errorf("初始化组件失败: %v", err)
+	// 文件监控
+	{
+		fileWatcher, err := filewatch.New(
+			filewatch.WithOnChange(m.handleFileChanges),
+		)
+		if err != nil {
+			return fmt.Errorf("创建监控器失败: %v", err)
+		}
+
+		m.watcher = fileWatcher
+		go m.watcher.Run()
+
+		if g.Debug {
+			sdk.Logger().Debug("文件监控初始化完成")
+		}
+	}
+
+	{ // 启动事件服务器
+		m.eventServer = event.NewServer()
+		go m.eventServer.Run()
+
+		if g.Debug {
+			sdk.Logger().Debug("消息服务器初始化完成")
+		}
 	}
 
 	// 处理信号
@@ -44,39 +65,6 @@ func (m *masterServerImpl) Run() error {
 
 	// 等待退出信号
 	m.wg.Wait()
-	return nil
-}
-
-// initializeComponents 初始化组件
-func (m *masterServerImpl) initializeComponents() error {
-	// 初始化文件变动监控器
-	fileWatcher, err := filewatch.New(
-		filewatch.WithOnChange(m.handleFileChanges),
-	)
-	if err != nil {
-		return fmt.Errorf("创建监控器失败: %v", err)
-	}
-
-	m.watcher = fileWatcher
-
-	if g.Debug {
-		sdk.Logger().Debug("file watcher initialized")
-	}
-
-	//// 初始化事件服务
-	//m.event = event.NewServer()
-	//go func() {
-	//	err = m.event.Run()
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//}()
-	//
-	//if g.Debug {
-	//	sdk.Logger().Debug("event server initialized")
-	//}
-
-	sdk.Logger().Debug("组件初始化完成")
 	return nil
 }
 
@@ -91,8 +79,8 @@ func (m *masterServerImpl) handleSignals() {
 		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 		select {
-		case sig := <-sigChan:
-			sdk.Logger().Debug("收到信号, 正在停止服务...", "sig", sig)
+		case <-sigChan:
+			sdk.Logger().Debug("收到信号, 正在停止服务...")
 			m.shutdown()
 		case <-m.ctx.Done():
 			sdk.Logger().Debug("收到停止信号")
@@ -112,10 +100,10 @@ func (m *masterServerImpl) handleFileChanges(changedPaths []string) {
 
 	// 同步成功，发送消息到消息队列
 	syncTime := time.Now().Format(time.RFC3339)
-	if m.event != nil {
+	if m.eventServer != nil {
 		for _, path := range changedPaths {
-			if err := m.event.PublishMessage("", path); err != nil {
-				sdk.Logger().Error("publish event message", "err", err)
+			if err := m.eventServer.PublishMessage("", path); err != nil {
+				sdk.Logger().Error("publish eventServer message", "err", err)
 			}
 		}
 	}
@@ -133,7 +121,9 @@ func (m *masterServerImpl) shutdown() {
 	}
 
 	// 停止event server
-	m.event.Stop()
+	if m.eventServer != nil {
+		m.eventServer.Stop()
+	}
 
 	// 取消上下文
 	m.cancel()

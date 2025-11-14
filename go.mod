@@ -5,7 +5,7 @@ go 1.25.3
 require (
 	github.com/elliotchance/pie/v2 v2.8.1
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/hdget/sdk v0.2.0
+	github.com/hdget/sdk v0.2.1
 	github.com/hdget/utils v0.0.4
 	github.com/pkg/errors v0.9.1
 	github.com/r3labs/sse/v2 v2.10.0

@@ -34,7 +34,7 @@ const (
 			secret_access_key = "your_secret_key"
 			acl = "private"
 
-	[app.event]
+	[app.eventServer]
 		url = "https://localhost"
 		port = 8080
 `
