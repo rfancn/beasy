@@ -104,7 +104,7 @@ func (impl *fileWatcherImpl) Run() {
 
 			fmt.Println("timeout")
 
-			timer.Reset(defaultDebounceTime * time.Second)
+			timer.Reset(debounceTime)
 
 		case <-impl.stopChan:
 			return
