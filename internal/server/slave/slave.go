@@ -38,7 +38,7 @@ func (s *slaveServerImpl) Run() error {
 		default:
 			err := s.eventClient.Subscribe(s.ctx, s.handleMessage)
 			if err != nil {
-				sdk.Logger().Error("xxxxxxxxxxxxx", err)
+				sdk.Logger().Error("subscribe message", "err", err)
 			}
 		}
 	}
