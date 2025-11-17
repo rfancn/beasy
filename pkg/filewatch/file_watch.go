@@ -52,6 +52,8 @@ func New(options ...Option) (FileWatcher, error) {
 	for _, path := range g.Config.App.FileWatch.Paths {
 		if err = impl.addPath(path); err != nil {
 			return nil, errors.Wrapf(err, "add watch path, path: %s", path)
+		} else {
+			sdk.Logger().Debug("add watch path", path)
 		}
 	}
 
