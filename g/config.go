@@ -10,7 +10,7 @@ type confRoot struct {
 
 // Config 根配置结构
 type confApp struct {
-	FileWatch confFileWatch `toml:"file_watch"`
+	FileWatch confFileWatch `toml:"watcher"`
 	Sync      confSync      `toml:"sync"`
 	Event     confEvent     `toml:"event"`
 }
@@ -23,8 +23,11 @@ type confFileWatch struct {
 
 // confSync 同步配置
 type confSync struct {
-	RemotePath   string            `toml:"remote_path"`
-	RcloneConfig map[string]string `toml:"rclone_config"`
+	Endpoint     string `toml:"endpoint"`
+	RemotePath   string `toml:"remote_path"`
+	AccessKey    string `toml:"access_key"`
+	AccessSecret string `toml:"access_secret"`
+	acl          string `toml:"private"`
 }
 
 type confEvent struct {
