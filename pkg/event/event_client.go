@@ -29,7 +29,7 @@ func NewClient() *Client {
 	instance.sseClient.Headers[headerAccessSecret] = g.Config.App.Event.Secret
 	// 设置callback
 	instance.sseClient.OnConnect(onConnect)
-	instance.sseClient.OnDisconnect(onDisConnect)
+	instance.sseClient.OnDisconnect(onDisconnect)
 
 	// 永远尝试连接，即使连接断了也重连
 	reconnectStrategy := backoff.NewExponentialBackOff()
@@ -49,8 +49,8 @@ func onConnect(c *sse.Client) {
 	sdk.Logger().Debug("event server connected", "url", c.URL)
 }
 
-func onDisConnect(c *sse.Client) {
-	fmt.Println("event server disconnected", "url", c.URL)
+func onDisconnect(c *sse.Client) {
+	sdk.Logger().Debug("event server disconnected", "url", c.URL)
 }
 
 func (c *Client) Subscribe(ctx context.Context, msgHandler MessageHandler) error {

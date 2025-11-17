@@ -62,9 +62,11 @@ func New(options ...Option) (FileWatcher, error) {
 
 // Run 启动监控器
 func (impl *fileWatcherImpl) Run() {
-	changedPaths := make(map[string]struct{})
+	if g.Debug {
+		sdk.Logger().Debug("file watcher is running")
+	}
 
-	fmt.Println("run file watcher")
+	changedPaths := make(map[string]struct{})
 
 	debounceTime := defaultDebounceTime
 	if g.Config.App.FileWatch.Debounce > 0 {
@@ -77,11 +79,11 @@ func (impl *fileWatcherImpl) Run() {
 		select {
 		case event, ok := <-impl.watcher.Events:
 			if !ok { // 如果通道被关闭，则退出
-				fmt.Println("watch changes")
+				if g.Debug {
+					sdk.Logger().Debug("file watcher stopped")
+				}
 				return
 			}
-
-			fmt.Println("event:", event.Op, event.Name)
 
 			// 处理文件变化事件
 			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename|fsnotify.Chmod) != 0 {
@@ -89,6 +91,9 @@ func (impl *fileWatcherImpl) Run() {
 			}
 		case err, ok := <-impl.watcher.Errors:
 			if !ok {
+				if g.Debug {
+					sdk.Logger().Debug("file watcher stopped")
+				}
 				return
 			}
 			sdk.Logger().Error("监控错误", "err", err)
@@ -102,11 +107,9 @@ func (impl *fileWatcherImpl) Run() {
 				changedPaths = make(map[string]struct{})
 			}
 
-			fmt.Println("timeout")
-
 			timer.Reset(debounceTime)
-
 		case <-impl.stopChan:
+			sdk.Logger().Debug("quit file watcher")
 			return
 		}
 	}
@@ -121,7 +124,7 @@ func (impl *fileWatcherImpl) Stop() error {
 func (impl *fileWatcherImpl) addPath(path string) error {
 	// 检查路径是否存在
 	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("路径不存在: %s", path)
+		return fmt.Errorf("path doesn't exist: %s", path)
 	}
 
 	// 获取文件信息判断类型
@@ -139,13 +142,13 @@ func (impl *fileWatcherImpl) addPath(path string) error {
 	}
 }
 
-// watchFile 监控单个文件
+// watchFile watch one file
 func (impl *fileWatcherImpl) addFile(filePath string) error {
 	err := impl.watcher.Add(filePath)
 	if err != nil {
 		return err
 	}
-	log.Printf("已添加文件监控: %s", filePath)
+	log.Printf("add filepath: %s", filePath)
 	return nil
 }
 
@@ -154,7 +157,7 @@ func (impl *fileWatcherImpl) addDirectoryRecursive(rootPath string) error {
 		if err != nil {
 			// 跳过无权限访问的目录
 			if os.IsPermission(err) {
-				log.Printf("警告: 无权限访问 %s, 已跳过", path)
+				sdk.Logger().Warn("permission denied, skipped...", "path", path)
 				return filepath.SkipDir
 			}
 			return err
@@ -171,11 +174,11 @@ func (impl *fileWatcherImpl) addDirectoryRecursive(rootPath string) error {
 
 			err = impl.watcher.Add(path)
 			if err != nil {
-				sdk.Logger().Warn("无法监控目录", "path", path, "err", err)
-				return nil // 继续处理其他目录
+				sdk.Logger().Error("cannot watch", "path", path, "err", err)
+				return err // 继续处理其他目录
 			}
 
-			sdk.Logger().Debug("已添加目录监控", "path", path)
+			sdk.Logger().Debug("add watch path", "path", path)
 		}
 		return nil
 	})
