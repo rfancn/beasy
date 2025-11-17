@@ -66,7 +66,7 @@ func (impl *fileWatcherImpl) Run() {
 
 	fmt.Println("run file watcher")
 
-	timer := time.NewTimer(debounceTime)
+	timer := time.NewTimer(debounceTime * time.Second)
 
 	for {
 		select {
@@ -99,7 +99,7 @@ func (impl *fileWatcherImpl) Run() {
 
 			fmt.Println("timeout")
 
-			timer.Reset(debounceTime)
+			timer.Reset(debounceTime * time.Second)
 
 		case <-impl.stopChan:
 			return

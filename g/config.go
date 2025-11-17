@@ -1,9 +1,5 @@
 package g
 
-import (
-	"time"
-)
-
 type confRoot struct {
 	App confApp `toml:"app"`
 }
@@ -17,8 +13,8 @@ type confApp struct {
 
 // confFileWatch 监控配置
 type confFileWatch struct {
-	Paths        []string      `mapstructure:"paths"`
-	DebounceTime time.Duration `mapstructure:"debounce_time"`
+	Paths        []string `mapstructure:"paths"`
+	DebounceTime int      `mapstructure:"debounce_time"`
 }
 
 // confSync 同步配置
