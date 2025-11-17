@@ -29,7 +29,7 @@ type fileWatcherImpl struct {
 }
 
 const (
-	debounceTime = 1 * time.Second
+	defaultDebounceTime = 3 * time.Second
 )
 
 // New 创建新的文件监控器
@@ -66,7 +66,12 @@ func (impl *fileWatcherImpl) Run() {
 
 	fmt.Println("run file watcher")
 
-	timer := time.NewTimer(debounceTime * time.Second)
+	debounceTime := defaultDebounceTime
+	if g.Config.App.FileWatch.Debounce > 0 {
+		debounceTime = time.Duration(g.Config.App.FileWatch.Debounce) * time.Second
+	}
+
+	timer := time.NewTimer(debounceTime)
 
 	for {
 		select {
@@ -76,7 +81,7 @@ func (impl *fileWatcherImpl) Run() {
 				return
 			}
 
-			fmt.Println("event:", event)
+			fmt.Println("event:", event.Op, event.Name)
 
 			// 处理文件变化事件
 			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename|fsnotify.Chmod) != 0 {
@@ -99,7 +104,7 @@ func (impl *fileWatcherImpl) Run() {
 
 			fmt.Println("timeout")
 
-			timer.Reset(debounceTime * time.Second)
+			timer.Reset(defaultDebounceTime * time.Second)
 
 		case <-impl.stopChan:
 			return
