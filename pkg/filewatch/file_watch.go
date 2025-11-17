@@ -71,7 +71,7 @@ func (impl *fileWatcherImpl) Run() {
 		debounceTime = time.Duration(g.Config.App.FileWatch.Debounce) * time.Second
 	}
 
-	timer := time.After(debounceTime)
+	timer := time.NewTimer(debounceTime)
 
 	for {
 		select {
