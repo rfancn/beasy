@@ -64,32 +64,29 @@ func New(options ...Option) (FileWatcher, error) {
 func (impl *fileWatcherImpl) Run() {
 	changedPaths := make(map[string]struct{})
 
-	timer := time.NewTimer(0)
-	if !timer.Stop() {
-		<-timer.C
-	}
+	fmt.Println("run file watcher")
 
-LOOP:
+	timer := time.NewTimer(debounceTime)
+
 	for {
 		select {
 		case event, ok := <-impl.watcher.Events:
 			if !ok { // 如果通道被关闭，则退出
-				break LOOP
+				fmt.Println("watch changes")
+				return
 			}
+
+			fmt.Println("event:", event)
 
 			// 处理文件变化事件
 			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename|fsnotify.Chmod) != 0 {
 				changedPaths[event.Name] = struct{}{}
-
-				// 重置定时器, 防抖处理
-				if !timer.Stop() {
-					select {
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(debounceTime)
 			}
+		case err, ok := <-impl.watcher.Errors:
+			if !ok {
+				return
+			}
+			sdk.Logger().Error("监控错误", "err", err)
 		case <-timer.C:
 			// 定时器触发，收集所有变化的路径并调用回调
 			if len(changedPaths) > 0 && impl.onChange != nil {
@@ -99,13 +96,13 @@ LOOP:
 				// 重新初始化
 				changedPaths = make(map[string]struct{})
 			}
-		case err, ok := <-impl.watcher.Errors:
-			if !ok {
-				break LOOP
-			}
-			log.Printf("监控错误: %v", err)
+
+			fmt.Println("timeout")
+
+			timer.Reset(debounceTime)
+
 		case <-impl.stopChan:
-			break LOOP
+			return
 		}
 	}
 }
