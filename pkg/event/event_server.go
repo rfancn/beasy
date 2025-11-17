@@ -1,8 +1,10 @@
 package event
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/hdget/sdk"
 	"github.com/pkg/errors"
@@ -21,17 +23,33 @@ const (
 )
 
 func NewServer() *Server {
+	// IMPORTANT: all configuration need to be done before create stream
 	sseServer := sse.New()
-	sseServer.CreateStream(streamMessage)
+
+	// no auto replay
+	sseServer.AutoReplay = false
+
+	// on subscribe
 	sseServer.OnSubscribe = func(streamID string, sub *sse.Subscriber) {
-		sdk.Logger().Debug("subscribed stream", "slave", sub.URL)
-	}
-	sseServer.OnUnsubscribe = func(streamID string, sub *sse.Subscriber) {
-		sdk.Logger().Debug("unsubscribed stream", "slave", sub.URL)
+		sdk.Logger().Debug("stream subscribed")
 	}
 
+	// on unsubscribe
+	sseServer.OnUnsubscribe = func(streamID string, sub *sse.Subscriber) {
+		sdk.Logger().Debug("stream unsubscribed")
+	}
+
+	sseServer.CreateStream(streamMessage)
+
 	mux := http.NewServeMux()
-	mux.HandleFunc(sseEndpoint, sseServer.ServeHTTP)
+	mux.HandleFunc(sseEndpoint, func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(headerAccessSecret) != g.Config.App.Event.Secret {
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		sseServer.ServeHTTP(w, r)
+	})
 
 	return &Server{
 		sseServer:    sseServer,
@@ -39,20 +57,30 @@ func NewServer() *Server {
 	}
 }
 
-func (s *Server) Run() error {
-	return http.ListenAndServe(fmt.Sprintf(":%d", g.Config.Event.Port), s.httpSeverMux)
+func (s *Server) Run() {
+	url := fmt.Sprintf(":%d", g.Config.App.Event.Port)
+	err := http.ListenAndServe(url, s.httpSeverMux)
+	if err != nil {
+		sdk.Logger().Fatal("listen event: ", "err", err, "url", url)
+	}
 }
 
 // PublishMessage 发布消息处理
-func (s *Server) PublishMessage(topic, content string) error {
+func (s *Server) PublishMessage(topic string, msg any) error {
 	if !s.sseServer.StreamExists(streamMessage) {
 		return fmt.Errorf("stream %s does not exist", streamMessage)
 	}
 
+	data, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
 	// 推送消息
 	if ok := s.sseServer.TryPublish(streamMessage, &sse.Event{
-		Data:  []byte(content),
+		ID:    []byte(time.Now().Format(time.RFC3339)),
 		Event: []byte(topic),
+		Data:  data,
 	}); !ok {
 		return errors.New("message not published")
 	}

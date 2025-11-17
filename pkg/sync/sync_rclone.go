@@ -20,7 +20,7 @@ type rcloneSyncerImpl struct {
 
 // Sync 同步本地路径到远程OSS
 func (s *rcloneSyncerImpl) Sync(localPath string) error {
-	if g.Config.Sync.RemotePath == "" {
+	if g.Config.App.Sync.RemotePath == "" {
 		return fmt.Errorf("远程路径未配置")
 	}
 
@@ -36,12 +36,12 @@ func (s *rcloneSyncerImpl) Sync(localPath string) error {
 	}
 
 	// 解析目标文件系统（远程OSS路径）
-	dstFs, err := fs.NewFs(s.ctx, g.Config.Sync.RemotePath)
+	dstFs, err := fs.NewFs(s.ctx, g.Config.App.Sync.RemotePath)
 	if err != nil {
 		return fmt.Errorf("创建目标文件系统失败: %v", err)
 	}
 
-	log.Printf("开始同步: %s -> %s", localPath, g.Config.Sync.RemotePath)
+	log.Printf("开始同步: %s -> %s", localPath, g.Config.App.Sync.RemotePath)
 
 	// 执行同步操作 - 根据rclone v1.65.0的函数签名添加必要参数
 	err = sync.Sync(s.ctx, dstFs, srcFs, true)
@@ -49,7 +49,7 @@ func (s *rcloneSyncerImpl) Sync(localPath string) error {
 		return fmt.Errorf("同步失败: %v", err)
 	}
 
-	log.Printf("同步完成: %s -> %s", localPath, g.Config.Sync.RemotePath)
+	log.Printf("同步完成: %s -> %s", localPath, g.Config.App.Sync.RemotePath)
 
 	return nil
 }

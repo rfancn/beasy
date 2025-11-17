@@ -4,8 +4,12 @@ import (
 	"time"
 )
 
-// Config 根配置结构
 type confRoot struct {
+	App confApp `toml:"app"`
+}
+
+// Config 根配置结构
+type confApp struct {
 	FileWatch confFileWatch `toml:"file_watch"`
 	Sync      confSync      `toml:"sync"`
 	Event     confEvent     `toml:"event"`
@@ -24,6 +28,7 @@ type confSync struct {
 }
 
 type confEvent struct {
-	Url  string `toml:"url"`
-	Port int    `toml:"port"`
+	Url    string `toml:"url"`
+	Port   int    `toml:"port"`
+	Secret string `toml:"secret"`
 }

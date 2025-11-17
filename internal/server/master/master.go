@@ -18,13 +18,18 @@ import (
 )
 
 type masterServerImpl struct {
+	wg     sync.WaitGroup
+	ctx    context.Context
+	cancel context.CancelFunc
+
 	watcher     filewatch.FileWatcher
 	eventServer *event.Server
 	syncer      pkgsync.Syncer
-	wg          sync.WaitGroup
-	ctx         context.Context
-	cancel      context.CancelFunc
 }
+
+const (
+	topicFileChanges = "file:changes"
+)
 
 func New() server.Server {
 	return &masterServerImpl{}
@@ -33,6 +38,7 @@ func New() server.Server {
 func (m *masterServerImpl) Run() error {
 	// 创建上下文用于控制生命周期
 	m.ctx, m.cancel = context.WithCancel(context.Background())
+	defer m.cancel()
 
 	// 文件监控
 	{
@@ -47,7 +53,7 @@ func (m *masterServerImpl) Run() error {
 		go m.watcher.Run()
 
 		if g.Debug {
-			sdk.Logger().Debug("文件监控初始化完成")
+			sdk.Logger().Debug("文件监控服务启动")
 		}
 	}
 
@@ -56,7 +62,7 @@ func (m *masterServerImpl) Run() error {
 		go m.eventServer.Run()
 
 		if g.Debug {
-			sdk.Logger().Debug("消息服务器初始化完成")
+			sdk.Logger().Debug("消息服务启动")
 		}
 	}
 
@@ -66,6 +72,27 @@ func (m *masterServerImpl) Run() error {
 	// 等待退出信号
 	m.wg.Wait()
 	return nil
+}
+
+// handleFileChanges 处理文件变化
+func (m *masterServerImpl) handleFileChanges(changedPaths []string) {
+	sdk.Logger().Debug("file changes detected", "path", changedPaths)
+
+	//// 执行同步
+	//if err := m.syncer.BatchSync(changedPaths); err != nil {
+	//	sdk.Logger().Error("同步失败", "err", err)
+	//	return
+	//}
+
+	// 同步成功，发送消息到消息队列
+	if m.eventServer != nil {
+		err := m.eventServer.PublishMessage(topicFileChanges, changedPaths)
+		if err != nil {
+			sdk.Logger().Error("publish eventServer message", "err", err)
+		} else {
+			sdk.Logger().Debug("publish message", "time", time.Now())
+		}
+	}
 }
 
 // handleSignals 处理信号
@@ -84,34 +111,12 @@ func (m *masterServerImpl) handleSignals() {
 			m.shutdown()
 		case <-m.ctx.Done():
 			sdk.Logger().Debug("收到停止信号")
+			m.shutdown()
 		}
 	}()
 }
 
-// handleFileChanges 处理文件变化
-func (m *masterServerImpl) handleFileChanges(changedPaths []string) {
-	sdk.Logger().Debug("检测到文件变化", "path", changedPaths)
-
-	// 执行同步
-	if err := m.syncer.BatchSync(changedPaths); err != nil {
-		sdk.Logger().Error("同步失败", "err", err)
-		return
-	}
-
-	// 同步成功，发送消息到消息队列
-	syncTime := time.Now().Format(time.RFC3339)
-	if m.eventServer != nil {
-		for _, path := range changedPaths {
-			if err := m.eventServer.PublishMessage("", path); err != nil {
-				sdk.Logger().Error("publish eventServer message", "err", err)
-			}
-		}
-	}
-
-	sdk.Logger().Debug("同步完成", "时间", syncTime)
-}
-
-// shutdown 优雅关闭
+// Stop 优雅关闭
 func (m *masterServerImpl) shutdown() {
 	// 停止文件监控器
 	if m.watcher != nil {
