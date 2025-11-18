@@ -6,24 +6,22 @@ type confRoot struct {
 
 // Config 根配置结构
 type confApp struct {
-	FileWatch confFileWatch `mapstructure:"watcher"`
-	Sync      confSync      `mapstructure:"sync"`
+	FileWatch confFileWatch `mapstructure:"file_watch"`
+	Remote    confRemote    `mapstructure:"remote"`
 	Event     confEvent     `mapstructure:"event"`
 }
 
 // confFileWatch 监控配置
 type confFileWatch struct {
-	Paths    []string `mapstructure:"paths"`
-	Debounce int      `mapstructure:"debounce"`
+	Paths []string `mapstructure:"paths"`
 }
 
-// confSync 同步配置
-type confSync struct {
+type confRemote struct {
+	Bucket       string `mapstructure:"bucket"`
 	Endpoint     string `mapstructure:"endpoint"`
-	RemotePath   string `mapstructure:"remote_path"`
 	AccessKey    string `mapstructure:"access_key"`
 	AccessSecret string `mapstructure:"access_secret"`
-	acl          string `mapstructure:"private"`
+	ACL          string `mapstructure:"acl"`
 }
 
 type confEvent struct {

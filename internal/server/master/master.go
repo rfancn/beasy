@@ -13,8 +13,8 @@ import (
 	"github.com/rfancn/beasy/g"
 	"github.com/rfancn/beasy/internal/server"
 	"github.com/rfancn/beasy/pkg/event"
+	"github.com/rfancn/beasy/pkg/filetransfer"
 	"github.com/rfancn/beasy/pkg/filewatch"
-	pkgsync "github.com/rfancn/beasy/pkg/sync"
 )
 
 type masterServerImpl struct {
@@ -22,9 +22,9 @@ type masterServerImpl struct {
 	ctx    context.Context
 	cancel context.CancelFunc
 
-	watcher     filewatch.FileWatcher
-	eventServer *event.Server
-	syncer      pkgsync.Syncer
+	watch        filewatch.FileWatch
+	eventServer  *event.Server
+	fileTransfer filetransfer.FileTransfer
 }
 
 const (
@@ -46,14 +46,14 @@ func (m *masterServerImpl) Run() error {
 			filewatch.WithOnChange(m.handleFileChanges),
 		)
 		if err != nil {
-			return errors.Wrap(err, "initialize file watcher")
+			return errors.Wrap(err, "initialize file watch")
 		}
 
-		m.watcher = fileWatcher
-		go m.watcher.Run()
+		m.watch = fileWatcher
+		go m.watch.Run()
 
 		if g.Debug {
-			sdk.Logger().Debug("file watcher started")
+			sdk.Logger().Debug("file watch started")
 		}
 	}
 
@@ -74,17 +74,17 @@ func (m *masterServerImpl) Run() error {
 	return nil
 }
 
-// handleFileChanges 处理文件变化
+// handleFileChanges file changes on master server will sync to fileTransfer and notify all slaves
 func (m *masterServerImpl) handleFileChanges(changedPaths []string) {
-	sdk.Logger().Debug("file changes detected", "path", changedPaths)
+	sdk.Logger().Debug("file changes detected", "paths", changedPaths)
 
-	//// 执行同步
-	//if err := m.syncer.BatchSync(changedPaths); err != nil {
-	//	sdk.Logger().Error("同步失败", "err", err)
-	//	return
-	//}
+	// sync from local => remote
+	if err := m.fileTransfer.SyncToRemote(changedPaths); err != nil {
+		sdk.Logger().Error("sync to remote", "err", err)
+		return
+	}
 
-	// 同步成功，发送消息到消息队列
+	// notify slaves
 	if m.eventServer != nil {
 		err := m.eventServer.PublishMessage(topicFileChanges, changedPaths)
 		if err != nil {
@@ -95,7 +95,7 @@ func (m *masterServerImpl) handleFileChanges(changedPaths []string) {
 	}
 }
 
-// handleSignals 处理信号
+// handleSignals handle signals
 func (m *masterServerImpl) handleSignals() {
 	m.wg.Add(1)
 	go func() {
@@ -107,10 +107,10 @@ func (m *masterServerImpl) handleSignals() {
 
 		select {
 		case <-sigChan:
-			sdk.Logger().Debug("收到信号, 正在停止服务...")
+			sdk.Logger().Debug("receive signal, try stop service...")
 			m.shutdown()
 		case <-m.ctx.Done():
-			sdk.Logger().Debug("收到停止信号")
+			sdk.Logger().Debug("receive stop signal")
 			m.shutdown()
 		}
 	}()
@@ -119,9 +119,9 @@ func (m *masterServerImpl) handleSignals() {
 // Stop 优雅关闭
 func (m *masterServerImpl) shutdown() {
 	// 停止文件监控器
-	if m.watcher != nil {
-		if err := m.watcher.Stop(); err != nil {
-			sdk.Logger().Debug("停止监控器失败", "err", err)
+	if m.watch != nil {
+		if err := m.watch.Stop(); err != nil {
+			sdk.Logger().Debug("stop file watch", "err", err)
 		}
 	}
 
@@ -132,5 +132,5 @@ func (m *masterServerImpl) shutdown() {
 
 	// 取消上下文
 	m.cancel()
-	sdk.Logger().Debug("服务已停止")
+	sdk.Logger().Debug("file watch service stopped")
 }

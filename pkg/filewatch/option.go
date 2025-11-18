@@ -1,9 +1,9 @@
 package filewatch
 
-type Option func(impl *fileWatcherImpl)
+type Option func(impl *fileWatchImpl)
 
 func WithOnChange(callback func(changedPaths []string)) Option {
-	return func(impl *fileWatcherImpl) {
+	return func(impl *fileWatchImpl) {
 		impl.onChange = callback
 	}
 }

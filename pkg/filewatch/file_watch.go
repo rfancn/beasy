@@ -2,7 +2,6 @@ package filewatch
 
 import (
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,14 +14,14 @@ import (
 	"github.com/rfancn/beasy/g"
 )
 
-// FileWatcher 监控器接口
-type FileWatcher interface {
+// FileWatch 监控器接口
+type FileWatch interface {
 	Run()
 	Stop() error
 }
 
-// fileWatcherImpl 实现监控器接口
-type fileWatcherImpl struct {
+// fileWatchImpl 实现监控器接口
+type fileWatchImpl struct {
 	watcher  *fsnotify.Watcher
 	onChange func(changedPaths []string)
 	stopChan chan struct{}
@@ -33,13 +32,13 @@ const (
 )
 
 // New 创建新的文件监控器
-func New(options ...Option) (FileWatcher, error) {
+func New(options ...Option) (FileWatch, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
 
-	impl := &fileWatcherImpl{
+	impl := &fileWatchImpl{
 		watcher:  watcher,
 		stopChan: make(chan struct{}),
 	}
@@ -61,26 +60,17 @@ func New(options ...Option) (FileWatcher, error) {
 }
 
 // Run 启动监控器
-func (impl *fileWatcherImpl) Run() {
-	if g.Debug {
-		sdk.Logger().Debug("file watcher is running")
-	}
-
+func (impl *fileWatchImpl) Run() {
 	changedPaths := make(map[string]struct{})
 
-	debounceTime := defaultDebounceTime
-	if g.Config.App.FileWatch.Debounce > 0 {
-		debounceTime = time.Duration(g.Config.App.FileWatch.Debounce) * time.Second
-	}
-
-	timer := time.NewTimer(debounceTime)
+	timer := time.NewTimer(defaultDebounceTime)
 
 	for {
 		select {
 		case event, ok := <-impl.watcher.Events:
 			if !ok { // 如果通道被关闭，则退出
 				if g.Debug {
-					sdk.Logger().Debug("file watcher stopped")
+					sdk.Logger().Debug("file watch stopped")
 				}
 				return
 			}
@@ -92,11 +82,11 @@ func (impl *fileWatcherImpl) Run() {
 		case err, ok := <-impl.watcher.Errors:
 			if !ok {
 				if g.Debug {
-					sdk.Logger().Debug("file watcher stopped")
+					sdk.Logger().Debug("file watch stopped")
 				}
 				return
 			}
-			sdk.Logger().Error("监控错误", "err", err)
+			sdk.Logger().Error("receive file watch error", "err", err)
 		case <-timer.C:
 			// 定时器触发，收集所有变化的路径并调用回调
 			if len(changedPaths) > 0 && impl.onChange != nil {
@@ -107,21 +97,21 @@ func (impl *fileWatcherImpl) Run() {
 				changedPaths = make(map[string]struct{})
 			}
 
-			timer.Reset(debounceTime)
+			timer.Reset(defaultDebounceTime)
 		case <-impl.stopChan:
-			sdk.Logger().Debug("quit file watcher")
+			sdk.Logger().Debug("quit file watch")
 			return
 		}
 	}
 }
 
 // Stop 停止监控器
-func (impl *fileWatcherImpl) Stop() error {
+func (impl *fileWatchImpl) Stop() error {
 	close(impl.stopChan)
 	return impl.watcher.Close()
 }
 
-func (impl *fileWatcherImpl) addPath(path string) error {
+func (impl *fileWatchImpl) addPath(path string) error {
 	// 检查路径是否存在
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return fmt.Errorf("path doesn't exist: %s", path)
@@ -143,16 +133,11 @@ func (impl *fileWatcherImpl) addPath(path string) error {
 }
 
 // watchFile watch one file
-func (impl *fileWatcherImpl) addFile(filePath string) error {
-	err := impl.watcher.Add(filePath)
-	if err != nil {
-		return err
-	}
-	log.Printf("add filepath: %s", filePath)
-	return nil
+func (impl *fileWatchImpl) addFile(filePath string) error {
+	return impl.watcher.Add(filePath)
 }
 
-func (impl *fileWatcherImpl) addDirectoryRecursive(rootPath string) error {
+func (impl *fileWatchImpl) addDirectoryRecursive(rootPath string) error {
 	return filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			// 跳过无权限访问的目录

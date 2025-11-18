@@ -64,8 +64,3 @@ func (s *slaveServerImpl) shutdown() {
 	s.cancelFunc()
 
 }
-
-func (s *slaveServerImpl) GenConfig() error {
-	//TODO implement me
-	panic("implement me")
-}
