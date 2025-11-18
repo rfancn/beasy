@@ -53,7 +53,7 @@ func New(options ...Option) (FileWatcher, error) {
 		if err = impl.addPath(path); err != nil {
 			return nil, errors.Wrapf(err, "add watch path, path: %s", path)
 		} else {
-			sdk.Logger().Debug("add watch path", path)
+			sdk.Logger().Debug("add watch path", "path", path)
 		}
 	}
 
@@ -177,8 +177,6 @@ func (impl *fileWatcherImpl) addDirectoryRecursive(rootPath string) error {
 				sdk.Logger().Error("cannot watch", "path", path, "err", err)
 				return err // 继续处理其他目录
 			}
-
-			sdk.Logger().Debug("add watch path", "path", path)
 		}
 		return nil
 	})

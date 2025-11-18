@@ -2,7 +2,6 @@ package master
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"sync"
@@ -37,8 +36,6 @@ func New() server.Server {
 }
 
 func (m *masterServerImpl) Run() error {
-	fmt.Printf("%+v\n", g.Config)
-
 	// 创建上下文用于控制生命周期
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 	defer m.cancel()
@@ -49,7 +46,7 @@ func (m *masterServerImpl) Run() error {
 			filewatch.WithOnChange(m.handleFileChanges),
 		)
 		if err != nil {
-			return errors.Wrap(err, "file watcher initializing")
+			return errors.Wrap(err, "initialize file watcher")
 		}
 
 		m.watcher = fileWatcher
