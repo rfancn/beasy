@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/hdget/sdk"
+	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
 	"github.com/rfancn/beasy/internal/server"
 	"github.com/rfancn/beasy/pkg/event"
@@ -36,6 +37,8 @@ func New() server.Server {
 }
 
 func (m *masterServerImpl) Run() error {
+	fmt.Printf("%+v\n", g.Config)
+
 	// 创建上下文用于控制生命周期
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 	defer m.cancel()
@@ -46,14 +49,14 @@ func (m *masterServerImpl) Run() error {
 			filewatch.WithOnChange(m.handleFileChanges),
 		)
 		if err != nil {
-			return fmt.Errorf("创建监控器失败: %v", err)
+			return errors.Wrap(err, "file watcher initializing")
 		}
 
 		m.watcher = fileWatcher
 		go m.watcher.Run()
 
 		if g.Debug {
-			sdk.Logger().Debug("文件监控服务启动")
+			sdk.Logger().Debug("file watcher started")
 		}
 	}
 
@@ -62,7 +65,7 @@ func (m *masterServerImpl) Run() error {
 		go m.eventServer.Run()
 
 		if g.Debug {
-			sdk.Logger().Debug("消息服务启动")
+			sdk.Logger().Debug("event server started")
 		}
 	}
 

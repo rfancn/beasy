@@ -55,7 +55,7 @@ func (s *slaveServerImpl) handleSignals() {
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sigChan
-	sdk.Logger().Debug("收到信号, 正在停止服务...")
+	sdk.Logger().Debug("receive signals, try stop service...")
 	s.shutdown()
 }
 
