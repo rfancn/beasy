@@ -2,8 +2,18 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
+	"path/filepath"
+	"strings"
+	"text/template"
 
+	"github.com/chzyer/readline"
+	"github.com/hdget/sdk"
+	gonanoid "github.com/matoous/go-nanoid/v2"
+	"github.com/pkg/errors"
+	"github.com/rfancn/beasy/g"
+	"github.com/spf13/cast"
 	"github.com/spf13/cobra"
 )
 
@@ -31,48 +41,217 @@ const (
             max_age = 720
             # 日志切割时间间隔24小时（单位hour)
             rotation_time=24
-	
+
 [app]
 	[app.file_watch]
-		paths = ["/root/local/ssl"]
+		paths = [{{range $index, $item := .WatchPaths}}{{if $index}},{{end}}"{{ $item }}"{{end}}]
+		remote_prefix = "{{ .RemotePrefix }}"
 
 	[app.remote]
-		path = "remote:bucket/path/to"
-		endpoint = "oss-cn-hangzhou.aliyuncs.com"
+		provider = "aliyun"
+		bucket = "remote_bucket"
+		endpoint = "oss-cn-shanghai.aliyuncs.com"
 		access_key_id = "your_access_key"
 		secret_access_key = "your_secret_key"
 		acl = "private"
 
 	[app.event]
-		url = "https://localhost"
-		port = 8080
-		secret = ""
-
-[app]
-	[app.file_watch]
-		paths = ["/etc/nginx/conf.d"]
-
-	[app.remote]
-		path = "remote:bucket/path/to"
-		endpoint = "oss-cn-hangzhou.aliyuncs.com"
-		access_key_id = "your_access_key"
-		secret_access_key = "your_secret_key"
-		acl = "private"
-
-	[app.event]
-		url = "https://localhost"
-		port = 8080
-		secret = ""
-
+		url = "http://{{ .Host }}"
+		port = {{ .Port }}
+		secret = "{{ .Secret }}"
 `
 )
 
-func genConfig() error {
-	// 写入默认配置文件
-	if err := os.WriteFile("beasy.toml", []byte(templateConfigFile), 0644); err != nil {
-		return fmt.Errorf("生成配置文件失败: %v", err)
+type masterInput struct {
+	Host         string
+	Port         int
+	RemotePrefix string
+	Secret       string
+}
+
+type slaveInput struct {
+	masterInput
+	WatchPaths []string
+}
+
+func genConfig() {
+	configType := getInput("What's config do you want to generate?", "slave", "master")
+
+	switch configType {
+	case "master":
+		genMasterConfig()
+	case "slave":
+		genSlaveConfig()
+	}
+}
+
+func genMasterConfig() {
+	host := getInput("Please input host", getLocalIP())
+	port := getInput("Please input port", "8080")
+	remotePrefix := getInput("Please input remote prefix", "")
+
+	secret, err := gonanoid.New(16)
+	if err != nil {
+		fatalf("error generate secret: %v\n", err)
 	}
 
-	fmt.Println("配置文件已生成: beasy.toml")
-	return nil
+	tpl, err := template.New("").Parse(templateConfigFile)
+	if err != nil {
+		fatalf("parse config template: %v\n", err)
+	}
+
+	configFile := fmt.Sprintf("%s.toml", g.App)
+	if existsFile(configFile) {
+		fmt.Printf("%s exists, automatically saved as %s.bak\n", configFile, configFile)
+		_ = os.Rename(configFile, configFile+".bak")
+	}
+
+	f, err := os.Create(configFile)
+	if err != nil {
+		fatalf("error create config file: %v", err)
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	err = tpl.Execute(f, &masterInput{
+		Host:         host,
+		Port:         cast.ToInt(port),
+		Secret:       secret,
+		RemotePrefix: remotePrefix,
+	})
+	if err != nil {
+		fatalf("error render config template: %v", err)
+	}
+
+	fmt.Printf("config file generated: %s\n", configFile)
+}
+
+func genSlaveConfig() {
+	host := getInput("Please input master host", "localhost")
+	port := getInput("Please input master port", "8080")
+	secret := getInput("Please input master secret")
+	remotePrefix := getInput("Please input remote prefix")
+
+	currentDir, err := os.Getwd()
+	if err != nil {
+		fatalf("error get current dir: %v", err)
+	}
+
+	strWatchPath := getInput("Please input backup paths (separated with comma)", filepath.ToSlash(currentDir))
+
+	tpl, err := template.New("").Parse(templateConfigFile)
+	if err != nil {
+		fatalf("parse config template: %v\n", err)
+	}
+
+	configFile := fmt.Sprintf("%s.toml", g.App)
+	if existsFile(configFile) {
+		fmt.Printf("%s exists, automatically saved as %s.bak\n", configFile, configFile)
+		_ = os.Rename(configFile, configFile+".bak")
+	}
+
+	f, err := os.Create(configFile)
+	if err != nil {
+		fatalf("error create config file: %v", err)
+	}
+	defer func() {
+		_ = f.Close()
+	}()
+
+	err = tpl.Execute(f, &slaveInput{
+		masterInput: masterInput{
+			Host:         host,
+			Port:         cast.ToInt(port),
+			Secret:       secret,
+			RemotePrefix: remotePrefix,
+		},
+		WatchPaths: strings.Split(strWatchPath, ","),
+	})
+	if err != nil {
+		fatalf("error render config template: %v", err)
+	}
+
+	fmt.Printf("config file generated: %s\n", configFile)
+}
+
+// getInput 获取字符串输入
+func getInput(prompt string, choices ...string) string {
+	rlConfig := &readline.Config{}
+
+	var defaultValue string
+	if len(choices) > 0 {
+		defaultValue = choices[0]
+	}
+
+	var fullPrompt string
+	switch len(choices) {
+	case 0:
+		fullPrompt = fmt.Sprintf("%s: ", prompt)
+	case 1:
+		fullPrompt = fmt.Sprintf("%s[%s]: ", prompt, defaultValue)
+	default:
+		fullPrompt = fmt.Sprintf("%s[%s](%s): ", prompt, strings.Join(choices, "/"), defaultValue)
+	}
+
+	rlConfig.Prompt = fullPrompt
+	rl, _ := readline.NewEx(rlConfig)
+	defer func() {
+		if rl != nil {
+			_ = rl.Close()
+		}
+	}()
+
+	var inputValue string
+	for {
+		line, err := rl.Readline()
+		if err != nil {
+			if errors.Is(err, readline.ErrInterrupt) {
+				os.Exit(0)
+			}
+
+			if defaultValue != "" {
+				inputValue = defaultValue
+			}
+			break
+		}
+
+		inputValue = strings.TrimSpace(line)
+		if inputValue == "" {
+			inputValue = defaultValue
+			break
+		}
+	}
+
+	return inputValue
+}
+
+func getLocalIP() string {
+	addressList, err := net.InterfaceAddrs()
+	if err != nil {
+		sdk.Logger().Error("getLocalIP", "error", err)
+		return ""
+	}
+
+	for _, a := range addressList {
+		if ipNet, ok := a.(*net.IPNet); ok &&
+			ipNet.IP.IsPrivate() &&
+			ipNet.IP.To4() != nil {
+			return ipNet.IP.To4().String()
+		}
+	}
+
+	return ""
+}
+
+func existsFile(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
+	// 其他类型的错误（如权限问题）也视为不存在
+	return false
 }

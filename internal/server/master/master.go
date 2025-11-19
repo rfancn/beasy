@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"path"
 	"sync"
 	"syscall"
 	"time"
@@ -28,17 +29,34 @@ type masterServerImpl struct {
 }
 
 const (
-	topicFileChanges = "file:changes"
+	dirMaster = "master"
 )
 
 func New() server.Server {
 	return &masterServerImpl{}
 }
 
+func (m *masterServerImpl) GetRootDir() string {
+	return path.Join(g.Config.App.FileWatch.RemotePrefix, dirMaster)
+}
+
 func (m *masterServerImpl) Run() error {
 	// 创建上下文用于控制生命周期
 	m.ctx, m.cancel = context.WithCancel(context.Background())
 	defer m.cancel()
+
+	// 处理信号
+	m.handleSignals()
+
+	// 文件同步
+	{
+		fileTransfer, err := filetransfer.New()
+		if err != nil {
+			return errors.Wrap(err, "create file transfer")
+		}
+
+		m.fileTransfer = fileTransfer
+	}
 
 	// 文件监控
 	{
@@ -66,9 +84,6 @@ func (m *masterServerImpl) Run() error {
 		}
 	}
 
-	// 处理信号
-	m.handleSignals()
-
 	// 等待退出信号
 	m.wg.Wait()
 	return nil
@@ -79,14 +94,14 @@ func (m *masterServerImpl) handleFileChanges(changedPaths []string) {
 	sdk.Logger().Debug("file changes detected", "paths", changedPaths)
 
 	// sync from local => remote
-	if err := m.fileTransfer.SyncToRemote(changedPaths); err != nil {
-		sdk.Logger().Error("sync to remote", "err", err)
+	if err := m.fileTransfer.SyncToRemote(changedPaths, m.GetRootDir()); err != nil {
+		sdk.Logger().Error("sync remote", "err", err)
 		return
 	}
 
 	// notify slaves
 	if m.eventServer != nil {
-		err := m.eventServer.PublishMessage(topicFileChanges, changedPaths)
+		err := m.eventServer.PublishMessage(event.TopicFileChanges, changedPaths)
 		if err != nil {
 			sdk.Logger().Error("publish eventServer message", "err", err)
 		} else {

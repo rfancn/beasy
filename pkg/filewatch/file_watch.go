@@ -48,7 +48,7 @@ func New(options ...Option) (FileWatch, error) {
 	}
 
 	// 添加监控路径
-	for _, path := range g.Config.App.FileWatch.Paths {
+	for _, path := range g.Config.App.FileWatch.LocalPaths {
 		if err = impl.addPath(path); err != nil {
 			return nil, errors.Wrapf(err, "add watch path, path: %s", path)
 		} else {

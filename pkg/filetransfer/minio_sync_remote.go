@@ -1,0 +1,184 @@
+package filetransfer
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+
+	"github.com/hdget/sdk"
+	"github.com/minio/minio-go/v7"
+	"github.com/pkg/errors"
+	"github.com/rfancn/beasy/g"
+)
+
+const (
+	concurrent = 3 // 并发上传数
+)
+
+func (m minioSyncerImpl) SyncToRemote(localPaths []string, remotePath string) error {
+	for _, localPath := range localPaths {
+		if err := m.sync(localPath, remotePath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m minioSyncerImpl) sync(localPath, remotePath string) error {
+	prefix := cleanPrefix(remotePath)
+
+	// 获取本地文件/目录信息, 确保本地路径存在
+	localInfo, err := os.Stat(localPath)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("local path '%s' doesn't exist", localPath)
+		}
+		return errors.Wrapf(err, "access local path: '%s'", localPath)
+	}
+
+	// 构建本地文件映射：relativePath -> os.FileInfo
+	localFiles := make(map[string]os.FileInfo)
+
+	if localInfo.IsDir() {
+		// 遍历目录
+		err = filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+			// 给机会中断可能长时间运行的动作
+			if m.ctx.Err() != nil {
+				return nil
+			}
+
+			if err != nil {
+				return err
+			}
+			if info.IsDir() {
+				return nil
+			}
+			rel, err := filepath.Rel(localPath, path)
+			if err != nil {
+				return err
+			}
+			localFiles[filepath.ToSlash(rel)] = info
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("walk local dir: %w", err)
+		}
+	} else {
+		// 单个文件
+		filename := filepath.Base(localPath)
+		localFiles[filename] = localInfo
+	}
+
+	// 获取远端已有对象列表
+	s3Objects := make(map[string]minio.ObjectInfo)
+	for obj := range m.client.ListObjects(m.ctx, g.Config.App.OSS.Bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	}) {
+		// 给机会中断可能长时间运行的动作
+		if m.ctx.Err() != nil {
+			return nil
+		}
+
+		if obj.Err != nil {
+			return fmt.Errorf("list s3 objects error: %w", obj.Err)
+		}
+		// 移除前缀，得到相对路径
+		keyWithoutPrefix := strings.TrimPrefix(obj.Key, prefix)
+		if strings.HasSuffix(keyWithoutPrefix, "/") || keyWithoutPrefix == "" {
+			continue // 跳过目录或者空对象
+		}
+		s3Objects[keyWithoutPrefix] = obj
+	}
+
+	// 准备工作：需要上传的文件 + 需要删除的对象
+	var toUpload []string
+	var toDelete []string
+
+	// 找出需要上传的（本地有，远端无 或 内容不同）
+	for relPath, fileInfo := range localFiles {
+		if s3Obj, exists := s3Objects[relPath]; exists {
+			// 比较大小和修改时间（简单策略，也可用 ETag）
+			if fileInfo.Size() == s3Obj.Size && fileInfo.ModTime().Unix() <= s3Obj.LastModified.Unix() {
+				// 认为相同，跳过
+				continue
+			}
+		}
+		toUpload = append(toUpload, relPath)
+	}
+
+	// 找出需要删除的（远端有，本地无）
+	for relPath := range s3Objects {
+		if _, exists := localFiles[relPath]; !exists {
+			toDelete = append(toDelete, relPath)
+		}
+	}
+
+	// 执行删除
+	if len(toDelete) > 0 {
+		sdk.Logger().Debug("deleting remote object(s) not present locally", "total", len(toDelete))
+		objectsCh := make(chan minio.ObjectInfo)
+		go func() {
+			defer close(objectsCh)
+			for _, relPath := range toDelete {
+				key := filepath.ToSlash(filepath.Join(prefix, relPath))
+				objectsCh <- minio.ObjectInfo{Key: key}
+			}
+		}()
+
+		for errRemove := range m.client.RemoveObjects(m.ctx, g.Config.App.OSS.Bucket, objectsCh, minio.RemoveObjectsOptions{}) {
+			// 给机会中断可能长时间运行的动作
+			if m.ctx.Err() != nil {
+				return nil
+			}
+
+			if errRemove.Err != nil {
+				return fmt.Errorf("delete object: %s, err: %w", errRemove.ObjectName, err)
+			}
+		}
+
+	}
+
+	// 执行上传（并发控制）
+	if len(toUpload) > 0 {
+		sdk.Logger().Debug("uploading file(s)", "total", len(toUpload))
+		sem := make(chan struct{}, concurrent)
+		var wg sync.WaitGroup
+		var uploadErr error
+		var mu sync.Mutex
+
+		for _, relPath := range toUpload {
+			wg.Add(1)
+			go func(rel string) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				localFullPath := localPath
+				if localInfo.IsDir() {
+					localFullPath = filepath.Join(localPath, rel)
+				}
+				s3Key := filepath.ToSlash(filepath.Join(prefix, rel))
+				_, err = m.client.FPutObject(m.ctx, g.Config.App.OSS.Bucket, s3Key, localFullPath, minio.PutObjectOptions{})
+				if err != nil {
+					mu.Lock()
+					if uploadErr == nil {
+						uploadErr = fmt.Errorf("upload %s to %s: %w", localFullPath, s3Key, err)
+					}
+					mu.Unlock()
+				} else {
+					sdk.Logger().Debug("success upload", "file", s3Key)
+				}
+			}(relPath)
+		}
+
+		wg.Wait()
+		if uploadErr != nil {
+			return uploadErr
+		}
+	}
+
+	return nil
+}

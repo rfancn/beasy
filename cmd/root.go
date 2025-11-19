@@ -19,6 +19,7 @@ func init() {
 
 	rootCommand.AddCommand(run.Command)
 	rootCommand.AddCommand(configCommand)
+	rootCommand.AddCommand(downloadCommand)
 }
 
 func Execute() {
@@ -30,4 +31,9 @@ func Execute() {
 	if err := rootCommand.Execute(); err != nil {
 		os.Exit(1)
 	}
+}
+
+func fatalf(msg string, args ...interface{}) {
+	fmt.Printf(msg+"\n", args...)
+	os.Exit(1)
 }

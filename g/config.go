@@ -7,16 +7,18 @@ type confRoot struct {
 // Config 根配置结构
 type confApp struct {
 	FileWatch confFileWatch `mapstructure:"file_watch"`
-	Remote    confRemote    `mapstructure:"remote"`
+	OSS       confOSS       `mapstructure:"oss"`
 	Event     confEvent     `mapstructure:"event"`
 }
 
 // confFileWatch 监控配置
 type confFileWatch struct {
-	Paths []string `mapstructure:"paths"`
+	LocalPaths   []string `mapstructure:"local_paths"`
+	RemotePrefix string   `mapstructure:"remote_prefix"`
 }
 
-type confRemote struct {
+type confOSS struct {
+	Provider     string `mapstructure:"provider"`
 	Bucket       string `mapstructure:"bucket"`
 	Endpoint     string `mapstructure:"endpoint"`
 	AccessKey    string `mapstructure:"access_key"`
