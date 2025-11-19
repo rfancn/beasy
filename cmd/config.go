@@ -46,7 +46,7 @@ const (
     paths = [{{range $index, $item := .WatchPaths}}{{if $index}},{{end}}"{{ $item }}"{{end}}]
     remote_prefix = "{{ .RemotePrefix }}"
 
-    [app.remote]
+    [app.oss]
         provider = "aliyun"
         bucket = "remote_bucket"
         endpoint = "oss-cn-shanghai.aliyuncs.com"

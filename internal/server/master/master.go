@@ -52,7 +52,7 @@ func (m *masterServerImpl) Run() error {
 	{
 		fileTransfer, err := filetransfer.New()
 		if err != nil {
-			return errors.Wrap(err, "create file transfer")
+			return errors.Wrap(err, "initialize file transfer")
 		}
 
 		m.fileTransfer = fileTransfer
