@@ -62,16 +62,12 @@ const (
 `
 )
 
-type masterInput struct {
+type configInput struct {
 	Host         string
 	Port         int
 	RemotePrefix string
 	Secret       string
-}
-
-type slaveInput struct {
-	masterInput
-	WatchPaths []string
+	WatchPaths   []string
 }
 
 func genConfig() {
@@ -114,7 +110,7 @@ func genMasterConfig() {
 		_ = f.Close()
 	}()
 
-	err = tpl.Execute(f, &masterInput{
+	err = tpl.Execute(f, &configInput{
 		Host:         host,
 		Port:         cast.ToInt(port),
 		Secret:       secret,
@@ -159,14 +155,12 @@ func genSlaveConfig() {
 		_ = f.Close()
 	}()
 
-	err = tpl.Execute(f, &slaveInput{
-		masterInput: masterInput{
-			Host:         host,
-			Port:         cast.ToInt(port),
-			Secret:       secret,
-			RemotePrefix: remotePrefix,
-		},
-		WatchPaths: strings.Split(strWatchPath, ","),
+	err = tpl.Execute(f, &configInput{
+		Host:         host,
+		Port:         cast.ToInt(port),
+		Secret:       secret,
+		RemotePrefix: remotePrefix,
+		WatchPaths:   strings.Split(strWatchPath, ","),
 	})
 	if err != nil {
 		fatalf("error render config template: %v", err)
