@@ -99,7 +99,7 @@ func (impl *fileWatchImpl) Run() {
 
 			timer.Reset(defaultDebounceTime)
 		case <-impl.stopChan:
-			sdk.Logger().Debug("quit file watch")
+			sdk.Logger().Debug("file watch stopped")
 			return
 		}
 	}
