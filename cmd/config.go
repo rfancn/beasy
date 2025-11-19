@@ -88,7 +88,7 @@ func genConfig() {
 func genMasterConfig() {
 	host := getInput("Please input host", getLocalIP())
 	port := getInput("Please input port", "8080")
-	remotePrefix := getInput("Please input remote prefix", "")
+	remotePrefix := getInput("Please input remote prefix")
 
 	secret, err := gonanoid.New(16)
 	if err != nil {
