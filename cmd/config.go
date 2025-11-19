@@ -28,8 +28,7 @@ var (
 )
 
 const (
-	templateConfigFile = `
-[sdk]
+	templateConfigFile = `[sdk]
   [sdk.log]
     # 当前支持日志级别: "trace", "debug", "info", "warn", "error", "fatal", "panic"
     level = "debug"
