@@ -1,8 +1,6 @@
 package filetransfer
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
 )
