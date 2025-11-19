@@ -30,35 +30,35 @@ var (
 const (
 	templateConfigFile = `
 [sdk]
-    [sdk.log]
-        # 当前支持日志级别: "trace", "debug", "info", "warn", "error", "fatal", "panic"
-        level = "debug"
-        # 日志文件名称
-        filename = "beasy.log"
-	    # 日志结转配置
-        [sdk.log.rotate]
-            # 日志最大保存时间7天(单位hour)
-            max_age = 720
-            # 日志切割时间间隔24小时（单位hour)
-            rotation_time=24
+  [sdk.log]
+    # 当前支持日志级别: "trace", "debug", "info", "warn", "error", "fatal", "panic"
+    level = "debug"
+    # 日志文件名称
+    filename = "beasy.log"
+    # 日志结转配置
+    [sdk.log.rotate]
+        # 日志最大保存时间7天(单位hour)
+        max_age = 720
+        # 日志切割时间间隔24小时（单位hour)
+        rotation_time=24
 
 [app]
-	[app.file_watch]
-		paths = [{{range $index, $item := .WatchPaths}}{{if $index}},{{end}}"{{ $item }}"{{end}}]
-		remote_prefix = "{{ .RemotePrefix }}"
+  [app.file_watch]
+    paths = [{{range $index, $item := .WatchPaths}}{{if $index}},{{end}}"{{ $item }}"{{end}}]
+    remote_prefix = "{{ .RemotePrefix }}"
 
-	[app.remote]
-		provider = "aliyun"
-		bucket = "remote_bucket"
-		endpoint = "oss-cn-shanghai.aliyuncs.com"
-		access_key_id = "your_access_key"
-		secret_access_key = "your_secret_key"
-		acl = "private"
+    [app.remote]
+        provider = "aliyun"
+        bucket = "remote_bucket"
+        endpoint = "oss-cn-shanghai.aliyuncs.com"
+        access_key_id = "your_access_key"
+        secret_access_key = "your_secret_key"
+        acl = "private"
 
-	[app.event]
-		url = "http://{{ .Host }}"
-		port = {{ .Port }}
-		secret = "{{ .Secret }}"
+    [app.event]
+        url = "http://{{ .Host }}"
+        port = {{ .Port }}
+        secret = "{{ .Secret }}"
 `
 )
 
