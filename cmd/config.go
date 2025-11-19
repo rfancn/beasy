@@ -50,8 +50,8 @@ const (
         provider = "aliyun"
         bucket = "remote_bucket"
         endpoint = "oss-cn-shanghai.aliyuncs.com"
-        access_key_id = "your_access_key"
-        secret_access_key = "your_secret_key"
+        access_key = "your_access_key"
+        access_secret = "your_secret_key"
         acl = "private"
 
     [app.event]
