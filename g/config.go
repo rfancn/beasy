@@ -13,7 +13,7 @@ type confApp struct {
 
 // confFileWatch 监控配置
 type confFileWatch struct {
-	LocalPaths   []string `mapstructure:"local_paths"`
+	Paths        []string `mapstructure:"paths"`
 	RemotePrefix string   `mapstructure:"remote_prefix"`
 }
 
