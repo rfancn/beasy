@@ -203,26 +203,20 @@ func getInput(prompt string, choices ...string) string {
 	}()
 
 	var inputValue string
-	for {
-		line, err := rl.Readline()
-		if err != nil {
-			if errors.Is(err, readline.ErrInterrupt) {
-				os.Exit(0)
-			}
-
-			if defaultValue != "" {
-				inputValue = defaultValue
-			}
-			break
+	line, err := rl.Readline()
+	if err != nil {
+		if errors.Is(err, readline.ErrInterrupt) {
+			os.Exit(0)
 		}
-
-		inputValue = strings.TrimSpace(line)
-		if inputValue == "" {
+		inputValue = defaultValue
+	} else {
+		line = strings.TrimSpace(line)
+		if line == "" {
 			inputValue = defaultValue
-			break
+		} else {
+			inputValue = line
 		}
 	}
-
 	return inputValue
 }
 
