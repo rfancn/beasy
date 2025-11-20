@@ -50,9 +50,11 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 			return fmt.Errorf("walk local dir: %w", err)
 		}
 	} else {
-		// 单个文件
-		filename := filepath.Base(changedItem.Path)
-		localFiles[filename] = changedItem.FileInfo
+		// 不是刪除文件，需要加入localFiles
+		if changedItem.Operation&(fsnotify.Remove|fsnotify.Rename) == 0 {
+			filename := filepath.Base(changedItem.Path)
+			localFiles[filename] = changedItem.FileInfo
+		}
 	}
 
 	// 获取远端已有对象列表
