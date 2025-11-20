@@ -125,8 +125,8 @@ func (s *slaveServerImpl) onMasterFileChanges(data []byte) error {
 	var foundPath, foundCommand string
 	for _, notify := range g.Config.App.Notifies {
 		for _, changedPath := range changedPaths {
-			sdk.Logger().Debug("xxxxxxxxxxx", "notify", notify.Path, "changed", changedPath)
-			matched, err := path.Match(notify.Path, changedPath)
+			sdk.Logger().Debug("xxxxxxxxxxx", "notify", notify.ChangedPath, "changed", changedPath)
+			matched, err := path.Match(notify.ChangedPath, changedPath)
 			if err != nil {
 				return err
 			}

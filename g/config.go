@@ -35,6 +35,6 @@ type confEvent struct {
 }
 
 type confNotify struct {
-	Path    string `mapstructure:"path"`
-	Command string `mapstructure:"command"`
+	ChangedPath string `mapstructure:"changed_path"`
+	Command     string `mapstructure:"command"`
 }

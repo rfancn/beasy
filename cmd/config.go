@@ -29,12 +29,12 @@ var (
 
 const (
 	templateConfigFile = `[sdk]
-  [sdk.log]
-    # 当前支持日志级别: "trace", "debug", "info", "warn", "error", "fatal", "panic"
-    level = "debug"
-    # 日志文件名称
-    filename = "beasy.log"
-    # 日志结转配置
+    [sdk.log]
+        # 当前支持日志级别: "trace", "debug", "info", "warn", "error", "fatal", "panic"
+        level = "debug"
+        # 日志文件名称
+        filename = "beasy.log"
+        # 日志结转配置
     [sdk.log.rotate]
         # 日志最大保存时间7天(单位hour)
         max_age = 720
@@ -42,32 +42,30 @@ const (
         rotation_time=24
 
 [app]
-  [app.oss]
-    provider = "aliyun"
-    bucket = "remote_bucket"
-    endpoint = "oss-cn-shanghai.aliyuncs.com"
-    access_key = "your_access_key"
-    access_secret = "your_secret_key"
-    acl = "private"
-    prefix = "{{ .RemotePrefix }}"
+    [app.oss]
+        provider = "aliyun"
+        bucket = "remote_bucket"
+        endpoint = "oss-cn-shanghai.aliyuncs.com"
+        access_key = "your_access_key"
+        access_secret = "your_secret_key"
+        acl = "private"
+        prefix = "{{ .RemotePrefix }}"
 
-  [app.event]
-    url = "http://{{ .Host }}"
-    port = {{ .Port }}
-    secret = "{{ .Secret }}"
+    [app.event]
+        url = "http://{{ .Host }}"
+        port = {{ .Port }}
+        secret = "{{ .Secret }}"
 
-  # local file watches
-  [[app.file_watches]]
-    paths = [{{range $index, $item := .WatchPaths}}{{if $index}},{{end}}"{{ $item }}"{{end}}]
-	# currently support action: sync
-    on_change = "sys:sync"
+    # local file watches
+    [[app.file_watches]]
+        paths = [{{range $index, $item := .WatchPaths}}{{if $index}},{{end}}"{{ $item }}"{{end}}]
 
-  # receive notifies (only applies to slave)
-  [[app.notifies]]
-	# relative changed path
-    changed_paths = "ssl/*"
-    # customized command if changed_patch matched
-    on_change = "systemctl reload nginx"
+    # receive notifies (only applies to slave)
+    [[app.notifies]]
+        # relative changed path
+        # changed_path = ""
+        # customized command if changed_patch matched
+        # command = ""
 `
 )
 
