@@ -104,8 +104,11 @@ func (impl *fileWatchImpl) Run() {
 			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Chmod|fsnotify.Remove|fsnotify.Rename) != 0 {
 				fileInfo, err := os.Stat(event.Name)
 				if err != nil {
+					sdk.Logger().Debug("get from cache", "path", event.Name, "event", event.Op)
 					fileInfo = impl.cache[event.Name]
 				}
+
+				sdk.Logger().Debug("xxxxxxxxxxx", "fileSize", fileInfo.Size(), "isDir", fileInfo.IsDir(), "modeTime", fileInfo.ModTime())
 				changedPathMap[event.Name] = fileInfo
 			}
 		case err, ok := <-impl.watcher.Errors:

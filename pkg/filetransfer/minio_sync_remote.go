@@ -80,10 +80,10 @@ func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string, fileInfo os.
 	var toDelete []string
 
 	// 找出需要上传的（本地有，远端无 或 内容不同）
-	for relPath, fileInfo := range localFiles {
+	for relPath, localFileInfo := range localFiles {
 		if s3Obj, exists := s3Objects[relPath]; exists {
 			// 比较大小和修改时间（简单策略，也可用 ETag）
-			if fileInfo.Size() == s3Obj.Size && fileInfo.ModTime().Unix() <= s3Obj.LastModified.Unix() {
+			if localFileInfo.Size() == s3Obj.Size && localFileInfo.ModTime().Unix() <= s3Obj.LastModified.Unix() {
 				// 认为相同，跳过
 				continue
 			}
