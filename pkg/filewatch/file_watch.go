@@ -112,6 +112,10 @@ func (impl *fileWatchImpl) Run() {
 				if err != nil {
 					sdk.Logger().Debug("get from cache", "path", event.Name, "event", event.Op)
 					fileInfo = impl.cache[event.Name]
+				} else {
+					impl.cacheMutex.Lock()
+					impl.cache[event.Name] = fileInfo
+					impl.cacheMutex.Unlock()
 				}
 
 				sdk.Logger().Debug("xxxxxxxxxxx", "op", event.Op, "fileSize", fileInfo.Size(), "isDir", fileInfo.IsDir(), "modeTime", fileInfo.ModTime())
