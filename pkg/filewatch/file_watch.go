@@ -34,9 +34,15 @@ type fileWatchImpl struct {
 }
 
 type ChangedItem struct {
-	Path     string
-	FileInfo os.FileInfo
-	Action   string
+	Path      string
+	FileInfo  os.FileInfo
+	Action    string
+	Operation fsnotify.Op
+}
+
+type ChangedEvent struct {
+	FileInfo  os.FileInfo
+	Operation fsnotify.Op
 }
 
 type FileChangeHandler func(changes []*ChangedItem)
@@ -87,7 +93,7 @@ func New(options ...Option) (FileWatch, error) {
 
 // Run 启动监控器
 func (impl *fileWatchImpl) Run() {
-	changedPathMap := make(map[string]os.FileInfo)
+	changedPathMap := make(map[string]*ChangedEvent)
 
 	timer := time.NewTimer(defaultDebounceTime)
 
@@ -109,7 +115,10 @@ func (impl *fileWatchImpl) Run() {
 				}
 
 				sdk.Logger().Debug("xxxxxxxxxxx", "fileSize", fileInfo.Size(), "isDir", fileInfo.IsDir(), "modeTime", fileInfo.ModTime())
-				changedPathMap[event.Name] = fileInfo
+				changedPathMap[event.Name] = &ChangedEvent{
+					FileInfo:  fileInfo,
+					Operation: event.Op,
+				}
 			}
 		case err, ok := <-impl.watcher.Errors:
 			if !ok {
@@ -128,9 +137,10 @@ func (impl *fileWatchImpl) Run() {
 				changes := make([]*ChangedItem, 0)
 				for _, path := range changedPaths {
 					changes = append(changes, &ChangedItem{
-						Path:     path,
-						FileInfo: changedPathMap[path],
-						Action:   impl.path2action[path],
+						Path:      path,
+						Action:    impl.path2action[path],
+						FileInfo:  changedPathMap[path].FileInfo,
+						Operation: changedPathMap[path].Operation,
 					})
 				}
 
@@ -138,7 +148,7 @@ func (impl *fileWatchImpl) Run() {
 				impl.onChange(changes)
 
 				// 重新初始化
-				changedPathMap = make(map[string]os.FileInfo)
+				changedPathMap = make(map[string]*ChangedEvent)
 			}
 
 			timer.Reset(defaultDebounceTime)

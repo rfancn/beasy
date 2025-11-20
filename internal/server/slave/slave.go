@@ -93,14 +93,14 @@ func (s *slaveServerImpl) Run() error {
 
 // handleFileChanges file changes on master server will sync to fileTransfer and notify all slaves
 func (s *slaveServerImpl) handleFileChanges(changes []*filewatch.ChangedItem) {
-	for _, changed := range changes {
+	for _, item := range changes {
 		// now only sync action supported
 		// 备份文件：sync from local => remote
-		if err := s.fileTransfer.SyncToRemote(changed.Path, s.GetRootDir(), changed.FileInfo); err != nil {
+		if err := s.fileTransfer.SyncToRemote(item, s.GetRootDir()); err != nil {
 			sdk.Logger().Error("sync remote", "err", err)
 			return
 		}
-		sdk.Logger().Debug("sync remote", "path", changed.Path)
+		sdk.Logger().Debug("sync remote", "path", item.Path)
 	}
 }
 

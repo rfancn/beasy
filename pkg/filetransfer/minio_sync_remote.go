@@ -7,9 +7,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/hdget/sdk"
 	"github.com/minio/minio-go/v7"
 	"github.com/rfancn/beasy/g"
+	"github.com/rfancn/beasy/pkg/filewatch"
 	"github.com/rfancn/beasy/pkg/utils"
 )
 
@@ -17,15 +19,15 @@ const (
 	concurrent = 3 // 并发上传数
 )
 
-func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string, fileInfo os.FileInfo) error {
+func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remotePath string) error {
 	prefix := utils.CleanPrefix(remotePath)
 
 	// 构建本地文件映射：relativePath -> os.FileInfo
 	localFiles := make(map[string]os.FileInfo)
 
-	if fileInfo.IsDir() {
+	if changedItem.FileInfo.IsDir() {
 		// 遍历目录
-		err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(changedItem.Path, func(path string, info os.FileInfo, err error) error {
 			// 给机会中断可能长时间运行的动作
 			if m.ctx.Err() != nil {
 				return nil
@@ -37,7 +39,7 @@ func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string, fileInfo os.
 			if info.IsDir() {
 				return nil
 			}
-			rel, err := filepath.Rel(localPath, path)
+			rel, err := filepath.Rel(changedItem.Path, path)
 			if err != nil {
 				return err
 			}
@@ -49,8 +51,8 @@ func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string, fileInfo os.
 		}
 	} else {
 		// 单个文件
-		filename := filepath.Base(localPath)
-		localFiles[filename] = fileInfo
+		filename := filepath.Base(changedItem.Path)
+		localFiles[filename] = changedItem.FileInfo
 	}
 
 	// 获取远端已有对象列表
@@ -81,13 +83,18 @@ func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string, fileInfo os.
 
 	// 找出需要上传的（本地有，远端无 或 内容不同）
 	for relPath, localFileInfo := range localFiles {
+		if changedItem.Operation&fsnotify.Rename|fsnotify.Remove != 0 {
+			continue
+		}
+
+		// 如果是新增和修改
 		if s3Obj, exists := s3Objects[relPath]; exists {
 			// 比较大小和修改时间（简单策略，也可用 ETag）
 			if localFileInfo.Size() == s3Obj.Size && localFileInfo.ModTime().Unix() <= s3Obj.LastModified.Unix() {
-				// 认为相同，跳过
 				continue
 			}
 		}
+		
 		toUpload = append(toUpload, relPath)
 	}
 
@@ -138,9 +145,9 @@ func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string, fileInfo os.
 				sem <- struct{}{}
 				defer func() { <-sem }()
 
-				localFullPath := localPath
-				if fileInfo.IsDir() {
-					localFullPath = filepath.Join(localPath, rel)
+				localFullPath := changedItem.Path
+				if changedItem.FileInfo.IsDir() {
+					localFullPath = filepath.Join(changedItem.Path, rel)
 				}
 				s3Key := filepath.ToSlash(filepath.Join(prefix, rel))
 				_, err := m.client.FPutObject(m.ctx, g.Config.App.OSS.Bucket, s3Key, localFullPath, minio.PutObjectOptions{})

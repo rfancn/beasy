@@ -100,7 +100,7 @@ func (m *masterServerImpl) handleFileChanges(changes []*filewatch.ChangedItem) {
 
 	// sync from local => remote
 	for _, item := range changes {
-		if err := m.fileTransfer.SyncToRemote(item.Path, m.GetRootDir(), item.FileInfo); err != nil {
+		if err := m.fileTransfer.SyncToRemote(item, m.GetRootDir()); err != nil {
 			sdk.Logger().Error("sync remote", "err", err)
 			return
 		}
