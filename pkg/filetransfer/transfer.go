@@ -1,14 +1,16 @@
 package filetransfer
 
 import (
+	"os"
+
 	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
 )
 
 // FileTransfer file transfer
 type FileTransfer interface {
-	SyncToRemote(localPath string, remotePath string) error // sync from local => remote
-	Download(remotePath, localPath string) error            // copyToRemote from remote => local
+	SyncToRemote(localPath string, remotePath string, fileInfo os.FileInfo) error // sync from local => remote
+	Download(remotePath, localPath string) error                                  // copyToRemote from remote => local
 }
 
 // New 创建新的rclone同步器

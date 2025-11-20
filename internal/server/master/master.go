@@ -91,18 +91,20 @@ func (m *masterServerImpl) Run() error {
 }
 
 // handleFileChanges file changes on master server will sync to fileTransfer and notify all slaves
-func (m *masterServerImpl) handleFileChanges(changedPath2action map[string]string) {
-	changedPaths := pie.Keys(changedPath2action)
+func (m *masterServerImpl) handleFileChanges(changes []*filewatch.ChangedItem) {
+	changedPaths := pie.Map(changes, func(v *filewatch.ChangedItem) string {
+		return v.Path
+	})
 
 	sdk.Logger().Debug("file changes detected", "paths", changedPaths)
 
 	// sync from local => remote
-	for _, changedPath := range changedPaths {
-		if err := m.fileTransfer.SyncToRemote(changedPath, m.GetRootDir()); err != nil {
+	for _, item := range changes {
+		if err := m.fileTransfer.SyncToRemote(item.Path, m.GetRootDir(), item.FileInfo); err != nil {
 			sdk.Logger().Error("sync remote", "err", err)
 			return
 		}
-		sdk.Logger().Debug("sync remote", "path", changedPath)
+		sdk.Logger().Debug("sync remote", "path", item.Path)
 	}
 
 	// notify slaves

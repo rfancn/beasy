@@ -9,7 +9,6 @@ import (
 
 	"github.com/hdget/sdk"
 	"github.com/minio/minio-go/v7"
-	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
 	"github.com/rfancn/beasy/pkg/utils"
 )
@@ -18,24 +17,15 @@ const (
 	concurrent = 3 // 并发上传数
 )
 
-func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string) error {
+func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string, fileInfo os.FileInfo) error {
 	prefix := utils.CleanPrefix(remotePath)
-
-	// 获取本地文件/目录信息, 确保本地路径存在
-	localInfo, err := os.Stat(localPath)
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("local path '%s' doesn't exist", localPath)
-		}
-		return errors.Wrapf(err, "access local path: '%s'", localPath)
-	}
 
 	// 构建本地文件映射：relativePath -> os.FileInfo
 	localFiles := make(map[string]os.FileInfo)
 
-	if localInfo.IsDir() {
+	if fileInfo.IsDir() {
 		// 遍历目录
-		err = filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+		err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
 			// 给机会中断可能长时间运行的动作
 			if m.ctx.Err() != nil {
 				return nil
@@ -60,7 +50,7 @@ func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string) error {
 	} else {
 		// 单个文件
 		filename := filepath.Base(localPath)
-		localFiles[filename] = localInfo
+		localFiles[filename] = fileInfo
 	}
 
 	// 获取远端已有对象列表
@@ -127,7 +117,7 @@ func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string) error {
 			}
 
 			if errRemove.Err != nil {
-				return fmt.Errorf("delete object: %s, err: %w", errRemove.ObjectName, err)
+				return fmt.Errorf("delete object: %s, err: %w", errRemove.ObjectName, errRemove.Err)
 			}
 		}
 
@@ -149,11 +139,11 @@ func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string) error {
 				defer func() { <-sem }()
 
 				localFullPath := localPath
-				if localInfo.IsDir() {
+				if fileInfo.IsDir() {
 					localFullPath = filepath.Join(localPath, rel)
 				}
 				s3Key := filepath.ToSlash(filepath.Join(prefix, rel))
-				_, err = m.client.FPutObject(m.ctx, g.Config.App.OSS.Bucket, s3Key, localFullPath, minio.PutObjectOptions{})
+				_, err := m.client.FPutObject(m.ctx, g.Config.App.OSS.Bucket, s3Key, localFullPath, minio.PutObjectOptions{})
 				if err != nil {
 					mu.Lock()
 					if uploadErr == nil {

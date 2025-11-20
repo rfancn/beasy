@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/elliotchance/pie/v2"
@@ -25,9 +26,20 @@ type fileWatchImpl struct {
 	watcher  *fsnotify.Watcher
 	stopChan chan struct{}
 
-	onChange    func(changedPath2action map[string]string) // 路径变化后的回调函数
-	path2action map[string]string                          // 监控路径变化后执行的动作
+	cache      map[string]os.FileInfo // 缓存路径信息：key为路径，value为os.FileInfo
+	cacheMutex sync.RWMutex           // 保护缓存的读写锁
+
+	onChange    FileChangeHandler // 路径变化后的回调函数
+	path2action map[string]string // 监控路径变化后执行的动作
 }
+
+type ChangedItem struct {
+	Path     string
+	FileInfo os.FileInfo
+	Action   string
+}
+
+type FileChangeHandler func(changes []*ChangedItem)
 
 const (
 	defaultDebounceTime = 3 * time.Second
@@ -45,6 +57,7 @@ func New(options ...Option) (FileWatch, error) {
 		stopChan: make(chan struct{}),
 
 		path2action: make(map[string]string),
+		cache:       make(map[string]os.FileInfo),
 	}
 
 	for _, option := range options {
@@ -72,15 +85,9 @@ func New(options ...Option) (FileWatch, error) {
 	return impl, nil
 }
 
-type changed struct {
-	path     string
-	op       fsnotify.Op
-	fileInfo os.FileInfo
-}
-
 // Run 启动监控器
 func (impl *fileWatchImpl) Run() {
-	changedMap := make(map[string]*changed)
+	changedPathMap := make(map[string]os.FileInfo)
 
 	timer := time.NewTimer(defaultDebounceTime)
 
@@ -94,17 +101,12 @@ func (impl *fileWatchImpl) Run() {
 				return
 			}
 
-			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename|fsnotify.Chmod) != 0 {
+			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Chmod|fsnotify.Remove|fsnotify.Rename) != 0 {
 				fileInfo, err := os.Stat(event.Name)
 				if err != nil {
-					sdk.Logger().Error("get file info", "err", err)
-				} else {
-					changedMap[event.Name] = &changed{
-						path:     event.Name,
-						op:       event.Op,
-						fileInfo: fileInfo,
-					}
+					fileInfo = impl.cache[event.Name]
 				}
+				changedPathMap[event.Name] = fileInfo
 			}
 		case err, ok := <-impl.watcher.Errors:
 			if !ok {
@@ -116,20 +118,24 @@ func (impl *fileWatchImpl) Run() {
 			sdk.Logger().Error("receive file watch error", "err", err)
 		case <-timer.C:
 			// 定时器触发，收集所有变化的路径并调用回调
-			if len(changedMap) > 0 && impl.onChange != nil {
-				changedPaths := pie.Keys(changedMap)
+			if len(changedPathMap) > 0 && impl.onChange != nil {
+				changedPaths := pie.Keys(changedPathMap)
 
 				// 获取对应的action
-				changedPath2action := make(map[string]string)
+				changes := make([]*ChangedItem, 0)
 				for _, path := range changedPaths {
-					changedPath2action[path] = impl.path2action[path]
+					changes = append(changes, &ChangedItem{
+						Path:     path,
+						FileInfo: changedPathMap[path],
+						Action:   impl.path2action[path],
+					})
 				}
 
 				// 将改变的内容发给onChange
-				impl.onChange(changedPath2action)
+				impl.onChange(changes)
 
 				// 重新初始化
-				changedMap = make(map[string]*changed)
+				changedPathMap = make(map[string]os.FileInfo)
 			}
 
 			timer.Reset(defaultDebounceTime)
@@ -147,21 +153,23 @@ func (impl *fileWatchImpl) Stop() error {
 }
 
 func (impl *fileWatchImpl) addPath(path string) error {
-	// 检查路径是否存在
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return fmt.Errorf("path doesn't exist: %s", path)
-	}
-
 	// 获取文件信息判断类型
-	info, err := os.Stat(path)
+	fileInfo, err := os.Stat(path)
 	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("path doesn't exist: %s", path)
+		}
 		return err
 	}
 
-	if info.IsDir() {
+	if fileInfo.IsDir() {
 		// 如果是目录，递归添加所有子目录
 		return impl.addDirectoryRecursive(path)
 	} else {
+		impl.cacheMutex.Lock()
+		impl.cache[path] = fileInfo
+		impl.cacheMutex.Unlock()
+
 		// 如果是文件，直接添加监控
 		return impl.addFile(path)
 	}
@@ -182,6 +190,11 @@ func (impl *fileWatchImpl) addDirectoryRecursive(rootPath string) error {
 			}
 			return err
 		}
+
+		// 缓存fileInfo
+		impl.cacheMutex.Lock()
+		impl.cache[path] = info
+		impl.cacheMutex.Unlock()
 
 		// 只监控目录（不监控单个文件）
 		if info.IsDir() {
