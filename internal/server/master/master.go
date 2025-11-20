@@ -104,7 +104,7 @@ func (m *masterServerImpl) handleFileChanges(changes []*filewatch.ChangedItem) {
 			sdk.Logger().Error("sync remote", "err", err)
 			return
 		}
-		sdk.Logger().Debug("sync remote", "path", item.Path)
+		sdk.Logger().Debug("sync remote done", "path", item.Path)
 	}
 
 	// notify slaves

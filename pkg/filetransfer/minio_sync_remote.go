@@ -94,7 +94,7 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 				continue
 			}
 		}
-		
+
 		toUpload = append(toUpload, relPath)
 	}
 
@@ -104,6 +104,9 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 			toDelete = append(toDelete, relPath)
 		}
 	}
+
+	sdk.Logger().Debug("xxxx upload", "to_upload", toUpload)
+	sdk.Logger().Debug("xxxx delete", "to_delete", toDelete)
 
 	// 执行删除
 	if len(toDelete) > 0 {

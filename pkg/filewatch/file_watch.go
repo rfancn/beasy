@@ -114,7 +114,7 @@ func (impl *fileWatchImpl) Run() {
 					fileInfo = impl.cache[event.Name]
 				}
 
-				sdk.Logger().Debug("xxxxxxxxxxx", "fileSize", fileInfo.Size(), "isDir", fileInfo.IsDir(), "modeTime", fileInfo.ModTime())
+				sdk.Logger().Debug("xxxxxxxxxxx", "op", event.Op, "fileSize", fileInfo.Size(), "isDir", fileInfo.IsDir(), "modeTime", fileInfo.ModTime())
 				changedPathMap[event.Name] = &ChangedEvent{
 					FileInfo:  fileInfo,
 					Operation: event.Op,
