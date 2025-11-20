@@ -141,7 +141,7 @@ func genSlaveConfig() {
 		fatalf("error get current dir: %v", err)
 	}
 
-	strWatchPath := getInput("Please input backup paths (separated with comma)", filepath.ToSlash(currentDir))
+	strWatchPath := getInput("Please input watch paths (separated with comma)", filepath.ToSlash(currentDir))
 
 	tpl, err := template.New("").Parse(templateConfigFile)
 	if err != nil {
