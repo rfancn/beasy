@@ -109,17 +109,16 @@ func (impl *fileWatchImpl) Run() {
 
 			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Chmod|fsnotify.Remove|fsnotify.Rename) != 0 {
 				fileInfo, err := os.Stat(event.Name)
+				// 如果取不到文件信息，则可能是删除动作，文件已不存在了，尝试从缓存中获取
 				if err != nil {
-					sdk.Logger().Debug("get from cache", "path", event.Name, "event", event.Op)
 					fileInfo = impl.cache[event.Name]
-				} else {
+				} else { // 重新取的文件信息，需要更新到缓存中
 					impl.cacheMutex.Lock()
 					impl.cache[event.Name] = fileInfo
 					impl.cacheMutex.Unlock()
 				}
 
 				if fileInfo != nil {
-					sdk.Logger().Debug("xxxxxxxxxxx", "op", event.Op, "fileSize", fileInfo.Size(), "isDir", fileInfo.IsDir(), "modeTime", fileInfo.ModTime())
 					changedPathMap[event.Name] = &ChangedEvent{
 						FileInfo:  fileInfo,
 						Operation: event.Op,
