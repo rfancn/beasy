@@ -37,7 +37,7 @@ func New() server.Server {
 
 func (s *slaveServerImpl) GetRootDir() string {
 	hostname, _ := os.Hostname()
-	return path.Join(dirSlave, hostname)
+	return path.Join(g.Config.App.OSS.Prefix, dirSlave, hostname)
 }
 
 func (s *slaveServerImpl) Run() error {
@@ -82,7 +82,7 @@ func (s *slaveServerImpl) Run() error {
 			case <-s.ctx.Done():
 				return nil
 			default:
-				err := s.eventClient.Subscribe(s.ctx, s.handleMessage)
+				err := s.eventClient.Subscribe(s.ctx, s.handleNotify)
 				if err != nil {
 					sdk.Logger().Error("subscribe message", "err", err)
 				}
@@ -92,25 +92,55 @@ func (s *slaveServerImpl) Run() error {
 }
 
 // handleFileChanges file changes on master server will sync to fileTransfer and notify all slaves
-func (s *slaveServerImpl) handleFileChanges(changedPaths []string) {
-	sdk.Logger().Debug("file changes detected", "paths", changedPaths)
-
-	// 备份文件：sync from local => remote
-	if err := s.fileTransfer.SyncToRemote(changedPaths, s.GetRootDir()); err != nil {
-		sdk.Logger().Error("sync remote", "err", err)
-		return
+func (s *slaveServerImpl) handleFileChanges(changedPath2action map[string]string) {
+	for changedPath := range changedPath2action {
+		// now only sync action supported
+		// 备份文件：sync from local => remote
+		if err := s.fileTransfer.SyncToRemote(changedPath, s.GetRootDir()); err != nil {
+			sdk.Logger().Error("sync remote", "err", err)
+			return
+		}
+		sdk.Logger().Debug("sync remote", "path", changedPath)
 	}
 }
 
-func (s *slaveServerImpl) handleMessage(msg *sse.Event) {
+func (s *slaveServerImpl) handleNotify(msg *sse.Event) {
 	sdk.Logger().Debug("receive message", "topic", string(msg.Event), "content", string(msg.Data))
 
 	switch string(msg.Event) {
 	case event.TopicFileChanges:
-		var files []string
-		_ = json.Unmarshal(msg.Data, &files)
-		sdk.Logger().Debug("file changes detected", "files", files)
+		if err := s.onMasterFileChanges(msg.Data); err != nil {
+			sdk.Logger().Error("handle master file changes event", "err", err)
+		}
 	}
+}
+
+func (s *slaveServerImpl) onMasterFileChanges(data []byte) error {
+	var changedPaths []string
+	err := json.Unmarshal(data, &changedPaths)
+	if err != nil {
+		return err
+	}
+
+	var foundPath, foundCommand string
+	for _, notify := range g.Config.App.Notifies {
+		for _, changedPath := range changedPaths {
+			sdk.Logger().Debug("xxxxxxxxxxx", "notify", notify.Path, "changed", changedPath)
+			matched, err := path.Match(notify.Path, changedPath)
+			if err != nil {
+				return err
+			}
+
+			if matched {
+				foundPath = changedPath
+				foundCommand = notify.Command
+				break
+			}
+		}
+	}
+
+	sdk.Logger().Debug("file changes detected", "path", foundPath, "command", foundCommand)
+	return nil
 }
 
 // handleSignals 处理信号

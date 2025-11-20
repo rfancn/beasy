@@ -14,10 +14,11 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
+	"github.com/rfancn/beasy/pkg/utils"
 )
 
 func (m minioSyncerImpl) Download(remotePath, localDir string) error {
-	prefix, pattern := m.getPrefixAndPattern(remotePath)
+	prefix, pattern := utils.GetPrefixAndPattern(remotePath)
 
 	// 列出指定前缀下的所有对象（包括子目录）
 	objectCh := m.client.ListObjects(m.ctx, g.Config.App.OSS.Bucket, minio.ListObjectsOptions{
@@ -136,29 +137,29 @@ func (m minioSyncerImpl) downloadFile(objectKey, localPath string) error {
 	return nil
 }
 
-func (m minioSyncerImpl) getPrefixAndPattern(remotePath string) (string, string) {
-	// 1. 处理通配符和路径类型
-	hasWildcard := strings.ContainsAny(remotePath, "*?")
-
-	var prefix, pattern string
-	if hasWildcard {
-		// 通配符路径：提取前缀和通配符模式
-		prefix = filepath.Dir(remotePath)
-		pattern = filepath.Base(remotePath)
-	} else {
-		// 普通路径：判断是文件还是目录
-		if strings.HasSuffix(remotePath, "/") {
-			// 目录：使用完整路径作为前缀，通配符模式为"*"
-			prefix = remotePath
-			pattern = "*"
-		} else {
-			// 文件：使用父目录作为前缀，文件名作为通配符
-			prefix = filepath.Dir(remotePath)
-			pattern = filepath.Base(remotePath)
-		}
-	}
-
-	prefix = cleanPrefix(prefix)
-
-	return prefix, pattern
-}
+//func (m minioSyncerImpl) getPrefixAndPattern(remotePath string) (string, string) {
+//	// 1. 处理通配符和路径类型
+//	hasWildcard := strings.ContainsAny(remotePath, "*?")
+//
+//	var prefix, pattern string
+//	if hasWildcard {
+//		// 通配符路径：提取前缀和通配符模式
+//		prefix = filepath.Dir(remotePath)
+//		pattern = filepath.Base(remotePath)
+//	} else {
+//		// 普通路径：判断是文件还是目录
+//		if strings.HasSuffix(remotePath, "/") {
+//			// 目录：使用完整路径作为前缀，通配符模式为"*"
+//			prefix = remotePath
+//			pattern = "*"
+//		} else {
+//			// 文件：使用父目录作为前缀，文件名作为通配符
+//			prefix = filepath.Dir(remotePath)
+//			pattern = filepath.Base(remotePath)
+//		}
+//	}
+//
+//	prefix = cleanPrefix(prefix)
+//
+//	return prefix, pattern
+//}

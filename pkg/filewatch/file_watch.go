@@ -23,8 +23,10 @@ type FileWatch interface {
 // fileWatchImpl 实现监控器接口
 type fileWatchImpl struct {
 	watcher  *fsnotify.Watcher
-	onChange func(changedPaths []string)
 	stopChan chan struct{}
+
+	onChange    func(changedPath2action map[string]string) // 路径变化后的回调函数
+	path2action map[string]string                          // 监控路径变化后执行的动作
 }
 
 const (
@@ -41,6 +43,8 @@ func New(options ...Option) (FileWatch, error) {
 	impl := &fileWatchImpl{
 		watcher:  watcher,
 		stopChan: make(chan struct{}),
+
+		path2action: make(map[string]string),
 	}
 
 	for _, option := range options {
@@ -48,10 +52,13 @@ func New(options ...Option) (FileWatch, error) {
 	}
 
 	// 添加监控路径
-	for _, path := range g.Config.App.FileWatch.Paths {
-		if err = impl.addPath(path); err != nil {
-			return nil, errors.Wrapf(err, "add watch path, path: %s", path)
-		} else {
+	for _, watch := range g.Config.App.FileWatches {
+		for _, path := range watch.Paths {
+			if err = impl.addPath(path); err != nil {
+				return nil, errors.Wrapf(err, "add watch path, path: %s", path)
+			}
+
+			impl.path2action[path] = watch.Action
 			sdk.Logger().Debug("add watch path", "path", path)
 		}
 	}
@@ -61,7 +68,7 @@ func New(options ...Option) (FileWatch, error) {
 
 // Run 启动监控器
 func (impl *fileWatchImpl) Run() {
-	changedPaths := make(map[string]struct{})
+	changedPathMap := make(map[string]struct{})
 
 	timer := time.NewTimer(defaultDebounceTime)
 
@@ -77,7 +84,7 @@ func (impl *fileWatchImpl) Run() {
 
 			// 处理文件变化事件
 			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename|fsnotify.Chmod) != 0 {
-				changedPaths[event.Name] = struct{}{}
+				changedPathMap[event.Name] = struct{}{}
 			}
 		case err, ok := <-impl.watcher.Errors:
 			if !ok {
@@ -89,12 +96,20 @@ func (impl *fileWatchImpl) Run() {
 			sdk.Logger().Error("receive file watch error", "err", err)
 		case <-timer.C:
 			// 定时器触发，收集所有变化的路径并调用回调
-			if len(changedPaths) > 0 && impl.onChange != nil {
+			if len(changedPathMap) > 0 && impl.onChange != nil {
+				changedPaths := pie.Keys(changedPathMap)
+
+				// 获取对应的action
+				changedPath2action := make(map[string]string)
+				for _, path := range changedPaths {
+					changedPath2action[path] = impl.path2action[path]
+				}
+
 				// 将改变的内容发给onChange
-				impl.onChange(pie.Keys(changedPaths))
+				impl.onChange(changedPath2action)
 
 				// 重新初始化
-				changedPaths = make(map[string]struct{})
+				changedPathMap = make(map[string]struct{})
 			}
 
 			timer.Reset(defaultDebounceTime)

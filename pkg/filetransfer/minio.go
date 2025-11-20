@@ -2,8 +2,6 @@ package filetransfer
 
 import (
 	"context"
-	"path/filepath"
-	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -54,15 +52,16 @@ func newMinioClient() (*minio.Client, error) {
 	return client, nil
 }
 
-func cleanPrefix(remotePath string) string {
-	remotePath = filepath.ToSlash(remotePath)
-
-	// 去除前面的"/"
-	remotePath = strings.TrimPrefix(remotePath, "/")
-
-	if !strings.HasSuffix(remotePath, "/") && remotePath != "" {
-		remotePath += "/"
-	}
-
-	return remotePath
-}
+//
+//func cleanPrefix(remotePath string) string {
+//	remotePath = filepath.ToSlash(remotePath)
+//
+//	// 去除前面的"/"
+//	remotePath = strings.TrimPrefix(remotePath, "/")
+//
+//	if !strings.HasSuffix(remotePath, "/") && remotePath != "" {
+//		remotePath += "/"
+//	}
+//
+//	return remotePath
+//}

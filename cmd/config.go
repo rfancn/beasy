@@ -42,22 +42,32 @@ const (
         rotation_time=24
 
 [app]
-  [app.file_watch]
+  [app.oss]
+    provider = "aliyun"
+    bucket = "remote_bucket"
+    endpoint = "oss-cn-shanghai.aliyuncs.com"
+    access_key = "your_access_key"
+    access_secret = "your_secret_key"
+    acl = "private"
+    prefix = "{{ .RemotePrefix }}"
+
+  [app.event]
+    url = "http://{{ .Host }}"
+    port = {{ .Port }}
+    secret = "{{ .Secret }}"
+
+  # local file watches
+  [[app.file_watches]]
     paths = [{{range $index, $item := .WatchPaths}}{{if $index}},{{end}}"{{ $item }}"{{end}}]
-    remote_prefix = "{{ .RemotePrefix }}"
+	# currently support action: sync
+    on_change = "sys:sync"
 
-    [app.oss]
-        provider = "aliyun"
-        bucket = "remote_bucket"
-        endpoint = "oss-cn-shanghai.aliyuncs.com"
-        access_key = "your_access_key"
-        access_secret = "your_secret_key"
-        acl = "private"
-
-    [app.event]
-        url = "http://{{ .Host }}"
-        port = {{ .Port }}
-        secret = "{{ .Secret }}"
+  # receive notifies (only applies to slave)
+  [[app.notifies]]
+	# relative changed path
+    changed_paths = "ssl/*"
+    # customized command if changed_patch matched
+    on_change = "systemctl reload nginx"
 `
 )
 

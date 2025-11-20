@@ -11,23 +11,15 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
+	"github.com/rfancn/beasy/pkg/utils"
 )
 
 const (
 	concurrent = 3 // 并发上传数
 )
 
-func (m minioSyncerImpl) SyncToRemote(localPaths []string, remotePath string) error {
-	for _, localPath := range localPaths {
-		if err := m.sync(localPath, remotePath); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (m minioSyncerImpl) sync(localPath, remotePath string) error {
-	prefix := cleanPrefix(remotePath)
+func (m minioSyncerImpl) SyncToRemote(localPath, remotePath string) error {
+	prefix := utils.CleanPrefix(remotePath)
 
 	// 获取本地文件/目录信息, 确保本地路径存在
 	localInfo, err := os.Stat(localPath)

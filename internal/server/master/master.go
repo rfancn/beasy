@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/elliotchance/pie/v2"
 	"github.com/hdget/sdk"
 	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
@@ -37,7 +38,7 @@ func New() server.Server {
 }
 
 func (m *masterServerImpl) GetRootDir() string {
-	return path.Join(g.Config.App.FileWatch.RemotePrefix, dirMaster)
+	return path.Join(g.Config.App.OSS.Prefix, dirMaster)
 }
 
 func (m *masterServerImpl) Run() error {
@@ -90,13 +91,18 @@ func (m *masterServerImpl) Run() error {
 }
 
 // handleFileChanges file changes on master server will sync to fileTransfer and notify all slaves
-func (m *masterServerImpl) handleFileChanges(changedPaths []string) {
+func (m *masterServerImpl) handleFileChanges(changedPath2action map[string]string) {
+	changedPaths := pie.Keys(changedPath2action)
+
 	sdk.Logger().Debug("file changes detected", "paths", changedPaths)
 
 	// sync from local => remote
-	if err := m.fileTransfer.SyncToRemote(changedPaths, m.GetRootDir()); err != nil {
-		sdk.Logger().Error("sync remote", "err", err)
-		return
+	for _, changedPath := range changedPaths {
+		if err := m.fileTransfer.SyncToRemote(changedPath, m.GetRootDir()); err != nil {
+			sdk.Logger().Error("sync remote", "err", err)
+			return
+		}
+		sdk.Logger().Debug("sync remote", "path", changedPath)
 	}
 
 	// notify slaves

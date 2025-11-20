@@ -7,8 +7,8 @@ import (
 
 // FileTransfer file transfer
 type FileTransfer interface {
-	SyncToRemote(localPaths []string, remotePath string) error // sync from local => remote
-	Download(remotePath, localPath string) error               // copyToRemote from remote => local
+	SyncToRemote(localPath string, remotePath string) error // sync from local => remote
+	Download(remotePath, localPath string) error            // copyToRemote from remote => local
 }
 
 // New 创建新的rclone同步器
