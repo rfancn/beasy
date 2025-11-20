@@ -3,6 +3,8 @@ package utils
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/hdget/sdk"
 )
 
 func CleanPrefix(remotePath string) string {
@@ -14,6 +16,8 @@ func CleanPrefix(remotePath string) string {
 	if !strings.HasSuffix(remotePath, "/") && remotePath != "" {
 		remotePath += "/"
 	}
+
+	sdk.Logger().Debug("xxxxxxxxxx", "remotePath", remotePath)
 
 	return remotePath
 }
