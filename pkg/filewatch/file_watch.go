@@ -72,9 +72,15 @@ func New(options ...Option) (FileWatch, error) {
 	return impl, nil
 }
 
+type changed struct {
+	path     string
+	op       fsnotify.Op
+	fileInfo os.FileInfo
+}
+
 // Run 启动监控器
 func (impl *fileWatchImpl) Run() {
-	changedPathMap := make(map[string]struct{})
+	changedMap := make(map[string]*changed)
 
 	timer := time.NewTimer(defaultDebounceTime)
 
@@ -88,9 +94,17 @@ func (impl *fileWatchImpl) Run() {
 				return
 			}
 
-			// 处理文件变化事件
 			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Remove|fsnotify.Rename|fsnotify.Chmod) != 0 {
-				changedPathMap[event.Name] = struct{}{}
+				fileInfo, err := os.Stat(event.Name)
+				if err != nil {
+					sdk.Logger().Error("get file info", "err", err)
+				} else {
+					changedMap[event.Name] = &changed{
+						path:     event.Name,
+						op:       event.Op,
+						fileInfo: fileInfo,
+					}
+				}
 			}
 		case err, ok := <-impl.watcher.Errors:
 			if !ok {
@@ -102,8 +116,8 @@ func (impl *fileWatchImpl) Run() {
 			sdk.Logger().Error("receive file watch error", "err", err)
 		case <-timer.C:
 			// 定时器触发，收集所有变化的路径并调用回调
-			if len(changedPathMap) > 0 && impl.onChange != nil {
-				changedPaths := pie.Keys(changedPathMap)
+			if len(changedMap) > 0 && impl.onChange != nil {
+				changedPaths := pie.Keys(changedMap)
 
 				// 获取对应的action
 				changedPath2action := make(map[string]string)
@@ -115,7 +129,7 @@ func (impl *fileWatchImpl) Run() {
 				impl.onChange(changedPath2action)
 
 				// 重新初始化
-				changedPathMap = make(map[string]struct{})
+				changedMap = make(map[string]*changed)
 			}
 
 			timer.Reset(defaultDebounceTime)
