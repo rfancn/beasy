@@ -12,7 +12,6 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/rfancn/beasy/g"
 	"github.com/rfancn/beasy/pkg/filewatch"
-	"github.com/rfancn/beasy/pkg/utils"
 )
 
 const (
@@ -20,7 +19,7 @@ const (
 )
 
 func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remotePath string) error {
-	prefix := utils.CleanPrefix(remotePath)
+	prefix := cleanPrefix(remotePath)
 
 	// 构建本地文件映射：relativePath -> os.FileInfo
 	localFiles := make(map[string]os.FileInfo)
@@ -107,8 +106,9 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 		}
 	}
 
-	sdk.Logger().Debug("xxxx upload", "to_upload", toUpload)
-	sdk.Logger().Debug("xxxx delete", "to_delete", toDelete)
+	if g.Debug {
+		sdk.Logger().Debug("sync remote status", "to_upload", toUpload, "to_delete", toDelete)
+	}
 
 	// 执行删除
 	if len(toDelete) > 0 {

@@ -14,11 +14,10 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
-	"github.com/rfancn/beasy/pkg/utils"
 )
 
 func (m minioSyncerImpl) Download(remotePath, localDir string) error {
-	prefix, pattern := utils.GetPrefixAndPattern(remotePath)
+	prefix, pattern := getPrefixAndPattern(remotePath)
 
 	// 列出指定前缀下的所有对象（包括子目录）
 	objectCh := m.client.ListObjects(m.ctx, g.Config.App.OSS.Bucket, minio.ListObjectsOptions{

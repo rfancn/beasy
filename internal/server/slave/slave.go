@@ -80,6 +80,7 @@ func (s *slaveServerImpl) Run() error {
 		for {
 			select {
 			case <-s.ctx.Done():
+				_ = s.watch.Stop()
 				return nil
 			default:
 				err := s.eventClient.Subscribe(s.ctx, s.handleNotify)
@@ -125,7 +126,10 @@ func (s *slaveServerImpl) onMasterFileChanges(data []byte) error {
 	var foundPath, foundCommand string
 	for _, notify := range g.Config.App.Notifies {
 		for _, changedPath := range changedPaths {
-			sdk.Logger().Debug("xxxxxxxxxxx", "notify", notify.ChangedPath, "changed", changedPath)
+			if g.Debug {
+				sdk.Logger().Debug("match changed path", "notify", notify.ChangedPath, "changed", changedPath)
+			}
+
 			matched, err := path.Match(notify.ChangedPath, changedPath)
 			if err != nil {
 				return err

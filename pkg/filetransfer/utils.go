@@ -1,13 +1,11 @@
-package utils
+package filetransfer
 
 import (
 	"path/filepath"
 	"strings"
-
-	"github.com/hdget/sdk"
 )
 
-func CleanPrefix(remotePath string) string {
+func cleanPrefix(remotePath string) string {
 	remotePath = filepath.ToSlash(remotePath)
 
 	// 去除前面的"/"
@@ -17,12 +15,10 @@ func CleanPrefix(remotePath string) string {
 		remotePath += "/"
 	}
 
-	sdk.Logger().Debug("xxxxxxxxxx", "remotePath", remotePath)
-
 	return remotePath
 }
 
-func GetPrefixAndPattern(remotePath string) (string, string) {
+func getPrefixAndPattern(remotePath string) (string, string) {
 	// 1. 处理通配符和路径类型
 	hasWildcard := strings.ContainsAny(remotePath, "*?")
 
@@ -44,5 +40,5 @@ func GetPrefixAndPattern(remotePath string) (string, string) {
 		}
 	}
 
-	return CleanPrefix(prefix), pattern
+	return cleanPrefix(prefix), pattern
 }
