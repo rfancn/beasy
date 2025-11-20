@@ -58,6 +58,9 @@ func (c *Client) Subscribe(ctx context.Context, msgHandler MessageHandler) error
 		sdk.Logger().Debug("try subscribe message")
 	}
 
+	// IMPORTANT: 每次重新订阅需要清空LastEventID
+	c.sseClient.LastEventID.Store([]byte(""))
+
 	err := c.sseClient.SubscribeWithContext(ctx, streamMessage, msgHandler)
 	if err != nil {
 		return err
