@@ -83,7 +83,7 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 
 	// 找出需要上传的（本地有，远端无 或 内容不同）
 	for relPath, localFileInfo := range localFiles {
-		if changedItem.Operation&fsnotify.Rename|fsnotify.Remove != 0 {
+		if changedItem.Operation&(fsnotify.Rename|fsnotify.Remove) != 0 {
 			continue
 		}
 
