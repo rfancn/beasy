@@ -118,10 +118,12 @@ func (impl *fileWatchImpl) Run() {
 					impl.cacheMutex.Unlock()
 				}
 
-				sdk.Logger().Debug("xxxxxxxxxxx", "op", event.Op, "fileSize", fileInfo.Size(), "isDir", fileInfo.IsDir(), "modeTime", fileInfo.ModTime())
-				changedPathMap[event.Name] = &ChangedEvent{
-					FileInfo:  fileInfo,
-					Operation: event.Op,
+				if fileInfo != nil {
+					sdk.Logger().Debug("xxxxxxxxxxx", "op", event.Op, "fileSize", fileInfo.Size(), "isDir", fileInfo.IsDir(), "modeTime", fileInfo.ModTime())
+					changedPathMap[event.Name] = &ChangedEvent{
+						FileInfo:  fileInfo,
+						Operation: event.Op,
+					}
 				}
 			}
 		case err, ok := <-impl.watcher.Errors:
