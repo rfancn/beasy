@@ -65,7 +65,7 @@ func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem) (map[
 }
 
 func (m minioSyncerImpl) SyncRemote(changedItem *filewatch.ChangedItem, remoteRootDir string) ([]string, []string, error) {
-	prefix := cleanPrefix(path.Join(remoteRootDir, changedItem.RemoteBasaDir))
+	prefix := cleanPrefix(path.Join(remoteRootDir, changedItem.RemoteBaseDir))
 
 	localFiles, err := m.getLocalFiles(changedItem)
 	if err != nil {

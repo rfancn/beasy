@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"path"
 	"syscall"
+	"time"
 
 	"github.com/hdget/sdk"
 	"github.com/pkg/errors"
@@ -67,6 +68,15 @@ func (s *slaveServerImpl) Run() error {
 
 		s.watch = fileWatcher
 		go s.watch.Run()
+
+		// 强制修改监控目录的mTime, 触发全量同步
+		for _, watch := range g.Config.App.FileWatches {
+			now := time.Now()
+			err := os.Chtimes(watch.Path, now, now)
+			if err != nil {
+				return errors.Wrapf(err, "trigger full sync for path: %s", watch.Path)
+			}
+		}
 
 		if g.Debug {
 			sdk.Logger().Debug("file watch started")

@@ -39,7 +39,7 @@ type ChangedItem struct {
 	Action        string
 	Operation     fsnotify.Op
 	LocalBaseDir  string
-	RemoteBasaDir string
+	RemoteBaseDir string
 }
 
 type ChangedEvent struct {
@@ -165,7 +165,7 @@ func (impl *fileWatchImpl) Run() {
 						FileInfo:      changedPathMap[path].FileInfo,
 						Operation:     changedPathMap[path].Operation,
 						LocalBaseDir:  localBaseDir,
-						RemoteBasaDir: remoteBaseDir,
+						RemoteBaseDir: remoteBaseDir,
 					})
 				}
 
