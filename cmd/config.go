@@ -44,12 +44,11 @@ const (
 [app]
     [app.oss]
         provider = "aliyun"
-        bucket = "remote_bucket"
+        bucket = "bucket"
         endpoint = "oss-cn-shanghai.aliyuncs.com"
         access_key = "your_access_key"
         access_secret = "your_secret_key"
         acl = "private"
-        prefix = "{{ .RemotePrefix }}"
 
     [app.event]
         url = "http://{{ .Host }}"
@@ -58,7 +57,8 @@ const (
 
     # local file watches
     [[app.file_watches]]
-        paths = [{{range $index, $item := .WatchPaths}}{{if $index}},{{end}}"{{ $item }}"{{end}}]
+        path = {{ .WatchPath }}
+        remote_dir = {{ .RemoteDir }}
 
     # receive notifies (only applies to slave)
     [[app.notifies]]
@@ -70,11 +70,10 @@ const (
 )
 
 type configInput struct {
-	Host         string
-	Port         int
-	RemotePrefix string
-	Secret       string
-	WatchPaths   []string
+	Host      string
+	Port      int
+	Secret    string
+	WatchPath string
 }
 
 func genConfig() {
@@ -91,7 +90,6 @@ func genConfig() {
 func genMasterConfig() {
 	host := getInput("Please input host", getLocalIP())
 	port := getInput("Please input port", "8080")
-	remotePrefix := getInput("Please input remote prefix")
 
 	secret, err := gonanoid.New(16)
 	if err != nil {
@@ -118,10 +116,9 @@ func genMasterConfig() {
 	}()
 
 	err = tpl.Execute(f, &configInput{
-		Host:         host,
-		Port:         cast.ToInt(port),
-		Secret:       secret,
-		RemotePrefix: remotePrefix,
+		Host:   host,
+		Port:   cast.ToInt(port),
+		Secret: secret,
 	})
 	if err != nil {
 		fatalf("error render config template: %v", err)
@@ -134,14 +131,13 @@ func genSlaveConfig() {
 	host := getInput("Please input master host", "localhost")
 	port := getInput("Please input master port", "8080")
 	secret := getInput("Please input master secret")
-	remotePrefix := getInput("Please input remote prefix")
 
 	currentDir, err := os.Getwd()
 	if err != nil {
 		fatalf("error get current dir: %v", err)
 	}
 
-	strWatchPath := getInput("Please input watch paths (separated with comma)", filepath.ToSlash(currentDir))
+	watchPath := getInput("Please input watch path", filepath.ToSlash(currentDir))
 
 	tpl, err := template.New("").Parse(templateConfigFile)
 	if err != nil {
@@ -163,11 +159,10 @@ func genSlaveConfig() {
 	}()
 
 	err = tpl.Execute(f, &configInput{
-		Host:         host,
-		Port:         cast.ToInt(port),
-		Secret:       secret,
-		RemotePrefix: remotePrefix,
-		WatchPaths:   strings.Split(strWatchPath, ","),
+		Host:      host,
+		Port:      cast.ToInt(port),
+		Secret:    secret,
+		WatchPath: watchPath,
 	})
 	if err != nil {
 		fatalf("error render config template: %v", err)
