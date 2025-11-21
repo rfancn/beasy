@@ -38,6 +38,7 @@ type ChangedItem struct {
 	FileInfo  os.FileInfo
 	Action    string
 	Operation fsnotify.Op
+	BaseDir   string
 }
 
 type ChangedEvent struct {
@@ -122,7 +123,10 @@ func (impl *fileWatchImpl) Run() {
 					if err = impl.watcher.Add(event.Name); err != nil {
 						sdk.Logger().Error("file watch add error", "path", event.Name, "error", err)
 					}
-				} else if fileInfo != nil {
+					sdk.Logger().Debug("file watch add path", "path", event.Name)
+				}
+
+				if fileInfo != nil {
 					changedPathMap[event.Name] = &ChangedEvent{
 						FileInfo:  fileInfo,
 						Operation: event.Op,
@@ -145,11 +149,23 @@ func (impl *fileWatchImpl) Run() {
 				// 获取对应的action
 				changes := make([]*ChangedItem, 0)
 				for _, path := range changedPaths {
+
+					var baseDir string
+					for _, watch := range g.Config.App.FileWatches {
+						for _, watchPath := range watch.Paths {
+							if strings.HasPrefix(watchPath, path) {
+								baseDir = path
+								break
+							}
+						}
+					}
+
 					changes = append(changes, &ChangedItem{
 						Path:      path,
 						Action:    impl.path2action[path],
 						FileInfo:  changedPathMap[path].FileInfo,
 						Operation: changedPathMap[path].Operation,
+						BaseDir:   baseDir,
 					})
 				}
 

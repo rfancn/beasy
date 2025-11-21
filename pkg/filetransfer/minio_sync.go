@@ -3,6 +3,7 @@ package filetransfer
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -19,7 +20,7 @@ const (
 	concurrent = 3 // 并发上传数
 )
 
-func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem, prefix string) (map[string]os.FileInfo, error) {
+func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem) (map[string]os.FileInfo, error) {
 	// 构建本地文件映射：relativePath -> os.FileInfo
 	localFiles := make(map[string]os.FileInfo)
 
@@ -54,7 +55,7 @@ func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem, prefi
 		}
 	} else {
 		filename := filepath.Base(changedItem.Path)
-		localFiles[filename] = changedItem.FileInfo
+		localFiles[path.Join(changedItem.BaseDir, filename)] = changedItem.FileInfo
 	}
 
 	return localFiles, nil
@@ -63,7 +64,7 @@ func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem, prefi
 func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remotePath string) error {
 	prefix := cleanPrefix(remotePath)
 
-	localFiles, err := m.getLocalFiles(changedItem, prefix)
+	localFiles, err := m.getLocalFiles(changedItem)
 	if err != nil {
 		return errors.Wrap(err, "get local files")
 	}
