@@ -10,6 +10,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/hdget/sdk"
 	"github.com/minio/minio-go/v7"
+	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
 	"github.com/rfancn/beasy/pkg/filewatch"
 )
@@ -18,11 +19,14 @@ const (
 	concurrent = 3 // 并发上传数
 )
 
-func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remotePath string) error {
-	prefix := cleanPrefix(remotePath)
-
+func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem, prefix string) (map[string]os.FileInfo, error) {
 	// 构建本地文件映射：relativePath -> os.FileInfo
 	localFiles := make(map[string]os.FileInfo)
+
+	// 如果是删除操作，返回空
+	if changedItem.Operation&(fsnotify.Remove|fsnotify.Rename) != 0 {
+		return nil, nil
+	}
 
 	if changedItem.FileInfo.IsDir() {
 		// 遍历目录
@@ -46,14 +50,22 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 			return nil
 		})
 		if err != nil {
-			return fmt.Errorf("walk local dir: %w", err)
+			return nil, fmt.Errorf("walk local dir: %w", err)
 		}
 	} else {
-		// 不是刪除文件，需要加入localFiles
-		if changedItem.Operation&(fsnotify.Remove|fsnotify.Rename) == 0 {
-			filename := filepath.Base(changedItem.Path)
-			localFiles[filename] = changedItem.FileInfo
-		}
+		filename := filepath.Base(changedItem.Path)
+		localFiles[filename] = changedItem.FileInfo
+	}
+
+	return localFiles, nil
+}
+
+func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remotePath string) error {
+	prefix := cleanPrefix(remotePath)
+
+	localFiles, err := m.getLocalFiles(changedItem, prefix)
+	if err != nil {
+		return errors.Wrap(err, "get local files")
 	}
 
 	// 获取远端已有对象列表
@@ -84,11 +96,6 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 
 	// 找出需要上传的（本地有，远端无 或 内容不同）
 	for relPath, localFileInfo := range localFiles {
-		if changedItem.Operation&(fsnotify.Rename|fsnotify.Remove) != 0 {
-			continue
-		}
-
-		// 如果是新增和修改
 		if s3Obj, exists := s3Objects[relPath]; exists {
 			// 比较大小和修改时间（简单策略，也可用 ETag）
 			if localFileInfo.Size() == s3Obj.Size && localFileInfo.ModTime().Unix() <= s3Obj.LastModified.Unix() {
