@@ -124,9 +124,7 @@ func (impl *fileWatchImpl) Run() {
 						sdk.Logger().Error("file watch add error", "path", event.Name, "error", err)
 					}
 					sdk.Logger().Debug("file watch add path", "path", event.Name)
-				}
-
-				if fileInfo != nil {
+				} else if fileInfo != nil {
 					changedPathMap[event.Name] = &ChangedEvent{
 						FileInfo:  fileInfo,
 						Operation: event.Op,
