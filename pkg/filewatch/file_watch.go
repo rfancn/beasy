@@ -74,7 +74,7 @@ func New(options ...Option) (FileWatch, error) {
 
 	// 添加监控路径
 	for _, watch := range g.Config.App.FileWatches {
-		path := strings.TrimSpace(watch.LocalPath)
+		path := strings.TrimSpace(watch.Path)
 
 		if path == "" {
 			continue
@@ -151,8 +151,8 @@ func (impl *fileWatchImpl) Run() {
 					var localBaseDir string
 					var remoteBaseDir string
 					for _, watch := range g.Config.App.FileWatches {
-						if strings.HasPrefix(path, watch.LocalPath) {
-							localBaseDir = watch.LocalPath
+						if watch.Path != "" && strings.HasPrefix(path, watch.Path) {
+							localBaseDir = watch.Path
 							remoteBaseDir = watch.RemoteDir
 							break
 						}

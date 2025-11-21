@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"os/signal"
-	"path"
 	"sync"
 	"syscall"
 	"time"
@@ -38,7 +37,7 @@ func New() server.Server {
 }
 
 func (m *masterServerImpl) GetRootDir() string {
-	return path.Join(g.Config.App.OSS.Prefix, dirMaster)
+	return dirMaster
 }
 
 func (m *masterServerImpl) Run() error {

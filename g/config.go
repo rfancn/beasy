@@ -14,8 +14,8 @@ type confApp struct {
 
 // confFileWatch 监控配置
 type confFileWatch struct {
+	Path      string `mapstructure:"path"`
 	RemoteDir string `mapstructure:"remote_dir"`
-	LocalPath string `mapstructure:"local_path"`
 	Action    string `mapstructure:"action"`
 }
 
@@ -26,7 +26,6 @@ type confOSS struct {
 	AccessKey    string `mapstructure:"access_key"`
 	AccessSecret string `mapstructure:"access_secret"`
 	ACL          string `mapstructure:"acl"`
-	Prefix       string `mapstructure:"prefix"`
 }
 
 type confEvent struct {

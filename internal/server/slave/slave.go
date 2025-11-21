@@ -37,7 +37,7 @@ func New() server.Server {
 
 func (s *slaveServerImpl) GetRootDir() string {
 	hostname, _ := os.Hostname()
-	return path.Join(g.Config.App.OSS.Prefix, dirSlave, hostname)
+	return path.Join(dirSlave, hostname)
 }
 
 func (s *slaveServerImpl) Run() error {
