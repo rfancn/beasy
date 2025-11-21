@@ -153,8 +153,8 @@ func (impl *fileWatchImpl) Run() {
 					var baseDir string
 					for _, watch := range g.Config.App.FileWatches {
 						for _, watchPath := range watch.Paths {
-							if strings.HasPrefix(watchPath, path) {
-								baseDir = path
+							if strings.HasPrefix(path, watchPath) {
+								baseDir = watchPath
 								break
 							}
 						}
