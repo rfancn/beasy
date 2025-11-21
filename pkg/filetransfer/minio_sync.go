@@ -54,6 +54,7 @@ func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem) (map[
 			return nil, fmt.Errorf("walk local dir: %w", err)
 		}
 	} else {
+		sdk.Logger().Debug("xxxxxxxxxxxxxxx", "changed", changedItem)
 		filename := filepath.Base(changedItem.Path)
 		localFiles[path.Join(changedItem.BaseDir, filename)] = changedItem.FileInfo
 	}
