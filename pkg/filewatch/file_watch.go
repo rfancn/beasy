@@ -118,7 +118,11 @@ func (impl *fileWatchImpl) Run() {
 					impl.cacheMutex.Unlock()
 				}
 
-				if fileInfo != nil {
+				if event.Op&fsnotify.Write != 0 && fileInfo.IsDir() {
+					if err = impl.watcher.Add(event.Name); err != nil {
+						sdk.Logger().Error("file watch add error", "path", event.Name, "error", err)
+					}
+				} else if fileInfo != nil {
 					changedPathMap[event.Name] = &ChangedEvent{
 						FileInfo:  fileInfo,
 						Operation: event.Op,
