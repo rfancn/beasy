@@ -120,7 +120,7 @@ func (impl *fileWatchImpl) Run() {
 				}
 
 				if event.Op&fsnotify.Create != 0 && fileInfo.IsDir() {
-					if err = impl.watcher.Add(event.Name); err != nil {
+					if err = impl.addPath(event.Name); err != nil {
 						sdk.Logger().Error("file watch add error", "path", event.Name, "error", err)
 					}
 					sdk.Logger().Debug("file watch add path", "path", event.Name)
