@@ -72,8 +72,7 @@ func (s *slaveServerImpl) Run() error {
 		// 强制修改监控目录的mTime, 触发全量同步
 		for _, watch := range g.Config.App.FileWatches {
 			now := time.Now()
-			err := os.Chtimes(watch.Path, now, now)
-			if err != nil {
+			if err = os.Chtimes(watch.Path, now, now); err != nil {
 				return errors.Wrapf(err, "trigger full sync for path: %s", watch.Path)
 			}
 		}
