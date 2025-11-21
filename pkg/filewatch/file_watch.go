@@ -118,9 +118,7 @@ func (impl *fileWatchImpl) Run() {
 					impl.cacheMutex.Unlock()
 				}
 
-				sdk.Logger().Debug("file watch event", "event", event)
-
-				if event.Op&fsnotify.Write != 0 && fileInfo.IsDir() {
+				if event.Op&fsnotify.Create != 0 && fileInfo.IsDir() {
 					if err = impl.watcher.Add(event.Name); err != nil {
 						sdk.Logger().Error("file watch add error", "path", event.Name, "error", err)
 					}
