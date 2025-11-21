@@ -3,6 +3,7 @@ package filetransfer
 import (
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -53,7 +54,7 @@ func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem) (map[
 			return nil, fmt.Errorf("walk local dir: %w", err)
 		}
 	} else {
-		rel, err := filepath.Rel(changedItem.BaseDir, changedItem.Path)
+		rel, err := filepath.Rel(changedItem.LocalBaseDir, changedItem.Path)
 		if err != nil {
 			return nil, fmt.Errorf("get relative path: %w", err)
 		}
@@ -63,12 +64,12 @@ func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem) (map[
 	return localFiles, nil
 }
 
-func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remotePath string) error {
-	prefix := cleanPrefix(remotePath)
+func (m minioSyncerImpl) SyncRemote(changedItem *filewatch.ChangedItem, remoteRootDir string) ([]string, []string, error) {
+	prefix := cleanPrefix(path.Join(remoteRootDir, changedItem.RemoteBasaDir))
 
 	localFiles, err := m.getLocalFiles(changedItem)
 	if err != nil {
-		return errors.Wrap(err, "get local files")
+		return nil, nil, errors.Wrap(err, "get local files")
 	}
 
 	// 获取远端已有对象列表
@@ -79,11 +80,11 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 	}) {
 		// 给机会中断可能长时间运行的动作
 		if m.ctx.Err() != nil {
-			return nil
+			return nil, nil, nil
 		}
 
 		if obj.Err != nil {
-			return fmt.Errorf("list s3 objects error: %w", obj.Err)
+			return nil, nil, fmt.Errorf("list s3 objects error: %w", obj.Err)
 		}
 		// 移除前缀，得到相对路径
 		keyWithoutPrefix := strings.TrimPrefix(obj.Key, prefix)
@@ -116,10 +117,6 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 		}
 	}
 
-	if g.Debug {
-		sdk.Logger().Debug("sync remote status", "to_upload", toUpload, "to_delete", toDelete)
-	}
-
 	// 执行删除
 	if len(toDelete) > 0 {
 		sdk.Logger().Debug("deleting remote object(s) not present locally", "total", len(toDelete))
@@ -135,11 +132,11 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 		for errRemove := range m.client.RemoveObjects(m.ctx, g.Config.App.OSS.Bucket, objectsCh, minio.RemoveObjectsOptions{}) {
 			// 给机会中断可能长时间运行的动作
 			if m.ctx.Err() != nil {
-				return nil
+				return nil, nil, nil
 			}
 
 			if errRemove.Err != nil {
-				return fmt.Errorf("delete object: %s, err: %w", errRemove.ObjectName, errRemove.Err)
+				return nil, nil, fmt.Errorf("delete object: %s, err: %w", errRemove.ObjectName, errRemove.Err)
 			}
 		}
 
@@ -180,9 +177,9 @@ func (m minioSyncerImpl) SyncToRemote(changedItem *filewatch.ChangedItem, remote
 
 		wg.Wait()
 		if uploadErr != nil {
-			return uploadErr
+			return nil, nil, uploadErr
 		}
 	}
 
-	return nil
+	return toUpload, toDelete, nil
 }

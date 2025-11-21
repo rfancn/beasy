@@ -8,8 +8,8 @@ import (
 
 // FileTransfer file transfer
 type FileTransfer interface {
-	SyncToRemote(changedItem *filewatch.ChangedItem, remotePath string) error // sync from local => remote
-	Download(remotePath, localPath string) error                              // copyToRemote from remote => local
+	SyncRemote(changedItem *filewatch.ChangedItem, remotePath string) ([]string, []string, error) // sync from local => remote
+	Download(remotePath, localPath string) error                                                  // copyToRemote from remote => local
 }
 
 // New 创建新的rclone同步器

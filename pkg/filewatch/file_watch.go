@@ -34,11 +34,12 @@ type fileWatchImpl struct {
 }
 
 type ChangedItem struct {
-	Path      string
-	FileInfo  os.FileInfo
-	Action    string
-	Operation fsnotify.Op
-	BaseDir   string
+	Path          string
+	FileInfo      os.FileInfo
+	Action        string
+	Operation     fsnotify.Op
+	LocalBaseDir  string
+	RemoteBasaDir string
 }
 
 type ChangedEvent struct {
@@ -73,20 +74,19 @@ func New(options ...Option) (FileWatch, error) {
 
 	// 添加监控路径
 	for _, watch := range g.Config.App.FileWatches {
-		for _, path := range watch.Paths {
-			path = strings.TrimSpace(path)
+		path := strings.TrimSpace(watch.LocalPath)
 
-			if path == "" {
-				continue
-			}
-
-			if err = impl.addPath(path); err != nil {
-				return nil, errors.Wrapf(err, "add watch path, path: %s", path)
-			}
-
-			impl.path2action[path] = watch.Action
-			sdk.Logger().Debug("add watch path", "path", path)
+		if path == "" {
+			continue
 		}
+
+		if err = impl.addPath(path); err != nil {
+			return nil, errors.Wrapf(err, "add watch path, path: %s", path)
+		}
+
+		impl.path2action[path] = watch.Action
+		sdk.Logger().Debug("add watch path", "path", path)
+
 	}
 
 	return impl, nil
@@ -148,22 +148,24 @@ func (impl *fileWatchImpl) Run() {
 				changes := make([]*ChangedItem, 0)
 				for _, path := range changedPaths {
 
-					var baseDir string
+					var localBaseDir string
+					var remoteBaseDir string
 					for _, watch := range g.Config.App.FileWatches {
-						for _, watchPath := range watch.Paths {
-							if strings.HasPrefix(path, watchPath) {
-								baseDir = watchPath
-								break
-							}
+						if strings.HasPrefix(path, watch.LocalPath) {
+							localBaseDir = watch.LocalPath
+							remoteBaseDir = watch.RemoteDir
+							break
 						}
+
 					}
 
 					changes = append(changes, &ChangedItem{
-						Path:      path,
-						Action:    impl.path2action[path],
-						FileInfo:  changedPathMap[path].FileInfo,
-						Operation: changedPathMap[path].Operation,
-						BaseDir:   baseDir,
+						Path:          path,
+						Action:        impl.path2action[path],
+						FileInfo:      changedPathMap[path].FileInfo,
+						Operation:     changedPathMap[path].Operation,
+						LocalBaseDir:  localBaseDir,
+						RemoteBasaDir: remoteBaseDir,
 					})
 				}
 

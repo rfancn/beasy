@@ -97,11 +97,15 @@ func (s *slaveServerImpl) handleFileChanges(changes []*filewatch.ChangedItem) {
 	for _, item := range changes {
 		// now only sync action supported
 		// 备份文件：sync from local => remote
-		if err := s.fileTransfer.SyncToRemote(item, s.GetRootDir()); err != nil {
+		uploads, deletes, err := s.fileTransfer.SyncRemote(item, s.GetRootDir())
+		if err != nil {
 			sdk.Logger().Error("sync remote", "err", err)
 			return
 		}
-		sdk.Logger().Debug("sync remote", "path", item.Path)
+
+		if len(uploads) > 0 || len(deletes) > 0 {
+			sdk.Logger().Debug("sync remote done", "path", item.Path, "uploads", uploads, "deletes", deletes)
+		}
 	}
 }
 

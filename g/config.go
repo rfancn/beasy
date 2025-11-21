@@ -14,8 +14,9 @@ type confApp struct {
 
 // confFileWatch 监控配置
 type confFileWatch struct {
-	Paths  []string `mapstructure:"paths"`
-	Action string   `mapstructure:"action"`
+	RemoteDir string `mapstructure:"remote_dir"`
+	LocalPath string `mapstructure:"local_path"`
+	Action    string `mapstructure:"action"`
 }
 
 type confOSS struct {
