@@ -8,66 +8,21 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/hdget/sdk"
 	"github.com/minio/minio-go/v7"
 	"github.com/pkg/errors"
 	"github.com/rfancn/beasy/g"
-	"github.com/rfancn/beasy/pkg/filewatch"
 )
 
 const (
 	concurrent = 3 // 并发上传数
 )
 
-func (m minioSyncerImpl) getLocalFiles(changedItem *filewatch.ChangedItem) (map[string]os.FileInfo, error) {
-	// 构建本地文件映射：relativePath -> os.FileInfo
-	localFiles := make(map[string]os.FileInfo)
+// SyncAll 通过比较本地的路径和远程的路径来做全量的同步
+func (m minioSyncerImpl) SyncAll(localPath, remotePath string) ([]string, []string, error) {
+	prefix := cleanPrefix(remotePath)
 
-	// 如果是删除操作，返回空
-	if changedItem.Operation&(fsnotify.Remove|fsnotify.Rename) != 0 {
-		return nil, nil
-	}
-
-	if changedItem.FileInfo.IsDir() {
-		// 遍历目录
-		err := filepath.Walk(changedItem.Path, func(path string, info os.FileInfo, err error) error {
-			// 给机会中断可能长时间运行的动作
-			if m.ctx.Err() != nil {
-				return nil
-			}
-
-			if err != nil {
-				return err
-			}
-			if info.IsDir() {
-				return nil
-			}
-			rel, err := filepath.Rel(changedItem.Path, path)
-			if err != nil {
-				return err
-			}
-			localFiles[filepath.ToSlash(rel)] = info
-			return nil
-		})
-		if err != nil {
-			return nil, fmt.Errorf("walk local dir: %w", err)
-		}
-	} else {
-		rel, err := filepath.Rel(changedItem.LocalBaseDir, changedItem.Path)
-		if err != nil {
-			return nil, fmt.Errorf("get relative path: %w", err)
-		}
-		localFiles[rel] = changedItem.FileInfo
-	}
-
-	return localFiles, nil
-}
-
-func (m minioSyncerImpl) SyncRemote(changedItem *filewatch.ChangedItem, remoteRootDir string) ([]string, []string, error) {
-	prefix := cleanPrefix(path.Join(remoteRootDir, changedItem.RemoteBaseDir))
-
-	localFiles, err := m.getLocalFiles(changedItem)
+	localFiles, err := m.getLocalFiles(localPath)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "get local files")
 	}
@@ -87,7 +42,7 @@ func (m minioSyncerImpl) SyncRemote(changedItem *filewatch.ChangedItem, remoteRo
 			return nil, nil, fmt.Errorf("list s3 objects error: %w", obj.Err)
 		}
 		// 移除前缀，得到相对路径
-		keyWithoutPrefix := strings.TrimPrefix(obj.Key, prefix)
+		keyWithoutPrefix := filepath.ToSlash(strings.TrimPrefix(obj.Key, prefix))
 		if strings.HasSuffix(keyWithoutPrefix, "/") || keyWithoutPrefix == "" {
 			continue // 跳过目录或者空对象
 		}
@@ -157,11 +112,8 @@ func (m minioSyncerImpl) SyncRemote(changedItem *filewatch.ChangedItem, remoteRo
 				sem <- struct{}{}
 				defer func() { <-sem }()
 
-				localFullPath := changedItem.Path
-				if changedItem.FileInfo.IsDir() {
-					localFullPath = filepath.Join(changedItem.Path, rel)
-				}
-				s3Key := filepath.ToSlash(filepath.Join(prefix, rel))
+				localFullPath := path.Join(filepath.ToSlash(localPath), rel)
+				s3Key := filepath.Join(prefix, rel)
 				_, err := m.client.FPutObject(m.ctx, g.Config.App.OSS.Bucket, s3Key, localFullPath, minio.PutObjectOptions{})
 				if err != nil {
 					mu.Lock()
@@ -182,4 +134,44 @@ func (m minioSyncerImpl) SyncRemote(changedItem *filewatch.ChangedItem, remoteRo
 	}
 
 	return toUpload, toDelete, nil
+}
+
+// getLocalFiles 获取本地文件列表，key为：relPath/to/file, value为os.FileInfo
+func (m minioSyncerImpl) getLocalFiles(localPath string, fileInfo os.FileInfo) (map[string]os.FileInfo, error) {
+	// 构建本地文件映射：relativePath -> os.FileInfo
+	localFiles := make(map[string]os.FileInfo)
+
+	if fileInfo.IsDir() {
+		// 遍历目录
+		err := filepath.Walk(localPath, func(path string, info os.FileInfo, err error) error {
+			// 给机会中断可能长时间运行的动作
+			if m.ctx.Err() != nil {
+				return nil
+			}
+
+			if err != nil {
+				return err
+			}
+
+			if info.IsDir() {
+				return nil
+			}
+
+			relPath, err := filepath.Rel(localPath, path)
+			if err != nil {
+				return err
+			}
+
+			localFiles[filepath.ToSlash(relPath)] = info
+			return nil
+		})
+		if err != nil {
+			return nil, fmt.Errorf("walk local dir: %w", err)
+		}
+	} else {
+		filename := filepath.Base(localPath)
+		localFiles[filepath.ToSlash(filename)] = fileInfo
+	}
+
+	return localFiles, nil
 }

@@ -53,7 +53,7 @@ func download(args ...string) {
 		sdk.Logger().Fatal("usage: download <remote_path> <local_dir>")
 	}
 
-	remotePath = path.Join(master.New().GetRootDir(), remotePath)
+	remotePath = path.Join(master.New().GetRemoteRoot(), remotePath)
 
 	// download
 	fileTransfer, err := filetransfer.New()

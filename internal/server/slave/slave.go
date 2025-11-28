@@ -22,7 +22,7 @@ import (
 type slaveServerImpl struct {
 	watch        filewatch.FileWatch
 	fileTransfer filetransfer.FileTransfer
-	eventClient  *event.Client
+	eventClient  event.Client
 
 	ctx        context.Context
 	cancelFunc context.CancelFunc
@@ -36,7 +36,7 @@ func New() server.Server {
 	return &slaveServerImpl{}
 }
 
-func (s *slaveServerImpl) GetRootDir() string {
+func (s *slaveServerImpl) GetRemoteRoot() string {
 	hostname, _ := os.Hostname()
 	return path.Join(dirSlave, hostname)
 }
@@ -69,14 +69,6 @@ func (s *slaveServerImpl) Run() error {
 		s.watch = fileWatcher
 		go s.watch.Run()
 
-		// 强制修改监控目录的mTime, 触发全量同步
-		for _, watch := range g.Config.App.FileWatches {
-			now := time.Now()
-			if err = os.Chtimes(watch.Path, now, now); err != nil {
-				return errors.Wrapf(err, "trigger full sync for path: %s", watch.Path)
-			}
-		}
-
 		if g.Debug {
 			sdk.Logger().Debug("file watch started")
 		}
@@ -86,19 +78,38 @@ func (s *slaveServerImpl) Run() error {
 	{
 		s.eventClient = event.NewClient()
 
-		for {
-			select {
-			case <-s.ctx.Done():
-				_ = s.watch.Stop()
-				return nil
-			default:
-				err := s.eventClient.Subscribe(s.ctx, s.handleNotify)
-				if err != nil {
-					sdk.Logger().Error("subscribe message", "err", err)
+		go func() {
+			for {
+				select {
+				case <-s.ctx.Done():
+					_ = s.watch.Stop()
+					return
+				default:
+					err := s.eventClient.Subscribe(s.ctx, s.handleNotify)
+					if err != nil {
+						sdk.Logger().Error("subscribe message", "err", err)
+					}
 				}
 			}
+		}()
+
+	}
+
+	// watch内容启动时候进行全量同步
+	for _, watch := range g.Config.App.FileWatches {
+		uploaded, deleted, err := s.fileTransfer.Sync(watch.Path, path.Join(s.GetRemoteRoot(), watch.RemoteDir))
+		if err != nil {
+			return errors.Wrapf(err, "sync files, path: %s", watch.Path)
+		}
+
+		if len(uploaded) != 0 || len(deleted) != 0 {
+			sdk.Logger().Debug("sync files done", "uploaded", uploaded, "deleted", deleted)
+		} else {
+			sdk.Logger().Debug("nothing to sync, skip it")
 		}
 	}
+
+	return nil
 }
 
 // handleFileChanges file changes on master server will sync to fileTransfer and notify all slaves
@@ -106,7 +117,7 @@ func (s *slaveServerImpl) handleFileChanges(changes []*filewatch.ChangedItem) {
 	for _, item := range changes {
 		// now only sync action supported
 		// 备份文件：sync from local => remote
-		uploads, deletes, err := s.fileTransfer.SyncRemote(item, s.GetRootDir())
+		uploads, deletes, err := s.fileTransfer.SyncRemote(item, s.GetRemoteRoot())
 		if err != nil {
 			sdk.Logger().Error("sync remote", "err", err)
 			return

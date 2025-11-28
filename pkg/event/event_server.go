@@ -12,7 +12,7 @@ import (
 	"github.com/rfancn/beasy/g"
 )
 
-type Server struct {
+type sseServerImpl struct {
 	sseServer    *sse.Server
 	httpSeverMux *http.ServeMux
 }
@@ -22,7 +22,7 @@ const (
 	sseEndpoint   = "/event"
 )
 
-func NewServer() *Server {
+func NewServer() Server {
 	// IMPORTANT: all configuration need to be done before create stream
 	sseServer := sse.New()
 
@@ -51,13 +51,13 @@ func NewServer() *Server {
 		sseServer.ServeHTTP(w, r)
 	})
 
-	return &Server{
+	return &sseServerImpl{
 		sseServer:    sseServer,
 		httpSeverMux: mux,
 	}
 }
 
-func (s *Server) Run() {
+func (s *sseServerImpl) Run() {
 	url := fmt.Sprintf(":%d", g.Config.App.Event.Port)
 	err := http.ListenAndServe(url, s.httpSeverMux)
 	if err != nil {
@@ -66,7 +66,7 @@ func (s *Server) Run() {
 }
 
 // PublishMessage 发布消息处理
-func (s *Server) PublishMessage(topic string, msg any) error {
+func (s *sseServerImpl) PublishMessage(topic string, msg any) error {
 	if !s.sseServer.StreamExists(streamMessage) {
 		return fmt.Errorf("stream %s does not exist", streamMessage)
 	}
@@ -88,6 +88,6 @@ func (s *Server) PublishMessage(topic string, msg any) error {
 	return nil
 }
 
-func (s *Server) Stop() {
+func (s *sseServerImpl) Stop() {
 	s.sseServer.Close()
 }

@@ -11,15 +11,15 @@ import (
 	"gopkg.in/cenkalti/backoff.v1"
 )
 
-type Client struct {
+type clientImpl struct {
 	sseClient *sse.Client
 	eventChan chan *sse.Event
 }
 
 type MessageHandler func(msg *sse.Event)
 
-func NewClient() *Client {
-	instance := &Client{
+func NewClient() Client {
+	instance := &clientImpl{
 		eventChan: make(chan *sse.Event),
 	}
 
@@ -45,15 +45,7 @@ func NewClient() *Client {
 	return instance
 }
 
-func onConnect(c *sse.Client) {
-	sdk.Logger().Debug("event server connected", "url", c.URL)
-}
-
-func onDisconnect(c *sse.Client) {
-	sdk.Logger().Debug("event server disconnected", "url", c.URL)
-}
-
-func (c *Client) Subscribe(ctx context.Context, msgHandler MessageHandler) error {
+func (c *clientImpl) Subscribe(ctx context.Context, msgHandler MessageHandler) error {
 	if g.Debug {
 		sdk.Logger().Debug("try subscribe message")
 	}
@@ -71,4 +63,12 @@ func (c *Client) Subscribe(ctx context.Context, msgHandler MessageHandler) error
 	}
 
 	return nil
+}
+
+func onConnect(c *sse.Client) {
+	sdk.Logger().Debug("event server connected", "url", c.URL)
+}
+
+func onDisconnect(c *sse.Client) {
+	sdk.Logger().Debug("event server disconnected", "url", c.URL)
 }

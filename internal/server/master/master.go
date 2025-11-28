@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/signal"
+	"path"
 	"sync"
 	"syscall"
 	"time"
@@ -24,7 +25,7 @@ type masterServerImpl struct {
 	cancel context.CancelFunc
 
 	watch        filewatch.FileWatch
-	eventServer  *event.Server
+	eventServer  event.Server
 	fileTransfer filetransfer.FileTransfer
 }
 
@@ -36,7 +37,7 @@ func New() server.Server {
 	return &masterServerImpl{}
 }
 
-func (m *masterServerImpl) GetRootDir() string {
+func (m *masterServerImpl) GetRemoteRoot() string {
 	return dirMaster
 }
 
@@ -61,7 +62,7 @@ func (m *masterServerImpl) Run() error {
 	// 文件监控
 	{
 		fileWatcher, err := filewatch.New(
-			filewatch.WithOnChange(m.handleFileChanges),
+			filewatch.WithOnChange(m.handleChanges),
 		)
 		if err != nil {
 			return errors.Wrap(err, "initialize file watch")
@@ -69,15 +70,6 @@ func (m *masterServerImpl) Run() error {
 
 		m.watch = fileWatcher
 		go m.watch.Run()
-
-		// 强制修改监控目录的mTime, 触发全量同步
-		for _, watch := range g.Config.App.FileWatches {
-			now := time.Now()
-			err := os.Chtimes(watch.Path, now, now)
-			if err != nil {
-				return errors.Wrapf(err, "trigger full sync for path: %s", watch.Path)
-			}
-		}
 
 		if g.Debug {
 			sdk.Logger().Debug("file watch started")
@@ -98,22 +90,43 @@ func (m *masterServerImpl) Run() error {
 	return nil
 }
 
-// handleFileChanges file changes on master server will sync to fileTransfer and notify all slaves
-func (m *masterServerImpl) handleFileChanges(changes []*filewatch.ChangedItem) {
-	changedPaths := pie.Map(changes, func(v *filewatch.ChangedItem) string {
-		return v.Path
-	})
+func (m *masterServerImpl) postStartup() error {
+	// watch启动时会进行全量同步
+	for _, watch := range g.Config.App.FileWatches {
+		uploaded, deleted, err := m.fileTransfer.Sync(watch.Path, path.Join(m.GetRemoteRoot(), watch.RemoteDir))
+		if err != nil {
+			return errors.Wrapf(err, "sync files, path: %s", watch.Path)
+		}
 
-	sdk.Logger().Debug("file changes detected", "paths", changedPaths)
+		if len(uploaded) != 0 || len(deleted) != 0 {
+			sdk.Logger().Debug("sync files done", "uploaded", uploaded, "deleted", deleted)
+		} else {
+			sdk.Logger().Debug("nothing to sync, skip it")
+		}
+	}
+
+}
+
+// handleChanges file changes on master server will sync to fileTransfer and notify all slaves
+func (m *masterServerImpl) handleChanges(changes []*filewatch.ChangedItem) {
+	sdk.Logger().Debug("file changes detected", "paths", pie.Map(changes, func(v *filewatch.ChangedItem) string {
+		return v.Path
+	}))
 
 	// sync from local => remote
+	changedPaths := make([]string, 0)
 	for _, item := range changes {
-		uploads, deletes, err := m.fileTransfer.SyncRemote(item, m.GetRootDir())
-		if err != nil {
-			sdk.Logger().Error("sync remote", "err", err)
-			return
+		switch item.Action {
+		default: // case sync
+			changedPath, err := m.fileTransfer.SyncChange(item)
+			if err != nil {
+				return
+			}
+
+			if changedPath != "" {
+				changedPaths = append(changedPaths, changedPath)
+			}
 		}
-		sdk.Logger().Debug("sync remote done", "path", item.Path, "uploads", uploads, "deletes", deletes)
 	}
 
 	// notify slaves

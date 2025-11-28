@@ -2,6 +2,9 @@ package filetransfer
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -50,6 +53,33 @@ func newMinioClient() (*minio.Client, error) {
 	}
 
 	return client, nil
+}
+
+func (m minioSyncerImpl) getRemoteObjects(prefix string) (map[string]minio.ObjectInfo, error) {
+	// 获取远端已有对象列表
+	s3Objects := make(map[string]minio.ObjectInfo)
+	for obj := range m.client.ListObjects(m.ctx, g.Config.App.OSS.Bucket, minio.ListObjectsOptions{
+		Prefix:    prefix,
+		Recursive: true,
+	}) {
+		// 给机会中断可能长时间运行的动作
+		if m.ctx.Err() != nil {
+			return nil, nil
+		}
+
+		if obj.Err != nil {
+			return nil, fmt.Errorf("list s3 objects error: %w", obj.Err)
+		}
+
+		// 移除前缀，得到相对路径并格式化
+		keyWithoutPrefix := filepath.ToSlash(strings.TrimPrefix(obj.Key, prefix))
+		if strings.HasSuffix(keyWithoutPrefix, "/") || keyWithoutPrefix == "" {
+			continue // 跳过目录或者空对象
+		}
+		s3Objects[keyWithoutPrefix] = obj
+	}
+
+	return s3Objects, nil
 }
 
 //
