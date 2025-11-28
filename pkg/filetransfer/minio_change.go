@@ -5,7 +5,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/fsnotify/fsnotify"
@@ -49,11 +48,11 @@ func (m minioSyncerImpl) SyncChange(item *filewatch.ChangedItem) ([]string, []st
 		return nil, []string{deleted}, nil
 	}
 
-	return nil
+	return nil, nil, nil
 }
 
 func (m minioSyncerImpl) uploadRemoteFile(remoteDir string, relPath string) (string, error) {
-
+	return "", nil
 }
 
 func (m minioSyncerImpl) deleteRemoteFile(remoteDir string, relPath string) (string, error) {
